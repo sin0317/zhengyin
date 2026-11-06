@@ -1,0 +1,2241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>征引考 · 参考文献核验</title>
+<meta name="description" content="把 AI 给的参考文献逐条比对 CrossRef 与 OpenAlex 的真实注册记录，判定真伪、逐字段纠错、一键转规范体例。不生成、不补全、不上传。">
+<style>
+:root{
+  --paper:#f4f1e8;
+  --paper-2:#fcfaf4;
+  --paper-3:#eae5d7;
+  --ink:#1a1814;
+  --ink-2:#4a453c;
+  --ink-3:#8a8375;
+  --ink-4:#b0a89a;
+  --rule:#ded6c3;
+  --rule-2:#c9c0aa;
+  --cinnabar:#a3302a;
+  --cinnabar-2:#c4554a;
+  --ok:#2b6449;
+  --ok-bg:#e6efe8;
+  --ok-bd:#bcd4c3;
+  --fix:#96600f;
+  --fix-bg:#f8eeda;
+  --fix-bd:#e3cda3;
+  --doubt:#77650f;
+  --doubt-bg:#f5f0d7;
+  --doubt-bd:#ddd3a6;
+  --miss:#8a3737;
+  --miss-bg:#f6e5e1;
+  --miss-bd:#e0bcb5;
+  --serif:"Source Han Serif CN","Noto Serif CJK SC","Songti SC","STSong","SimSun",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --mono:"JetBrains Mono","SF Mono","Cascadia Mono",Consolas,"Courier New",monospace;
+  --sh:0 1px 2px rgba(26,24,20,.05),0 6px 20px -12px rgba(26,24,20,.18);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(circle at 12% 8%,rgba(163,48,42,.045),transparent 42%),
+    radial-gradient(circle at 88% 92%,rgba(43,100,73,.04),transparent 45%);
+  background-attachment:fixed;
+}
+::selection{background:rgba(163,48,42,.16)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+@media(max-width:720px){.wrap{padding:0 18px}}
+
+/* ---------- 顶栏 ---------- */
+.topbar{
+  position:sticky;top:0;z-index:60;
+  background:rgba(244,241,232,.82);
+  backdrop-filter:blur(14px) saturate(1.4);
+  -webkit-backdrop-filter:blur(14px) saturate(1.4);
+  border-bottom:1px solid var(--rule);
+}
+.topbar .wrap{display:flex;align-items:center;justify-content:space-between;height:62px;gap:16px}
+.brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:inherit}
+.seal{width:34px;height:34px;flex:0 0 auto;color:var(--cinnabar)}
+.brand-txt{display:flex;flex-direction:column;line-height:1.15}
+.brand-cn{font-family:var(--serif);font-size:19px;font-weight:700;letter-spacing:.14em}
+.brand-en{font-size:9.5px;letter-spacing:.24em;color:var(--ink-3);text-transform:uppercase;font-weight:500}
+.topnote{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-3);letter-spacing:.02em}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(43,100,73,.13)}
+@media(max-width:640px){.topnote span{display:none}}
+
+/* ---------- Hero ---------- */
+.hero{padding:74px 0 46px;position:relative}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:9px;
+  font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--cinnabar);font-weight:600;margin-bottom:24px;
+}
+.eyebrow::before{content:"";width:26px;height:1px;background:var(--cinnabar);opacity:.55}
+h1.hero-h{
+  font-family:var(--serif);
+  font-size:clamp(34px,5.4vw,58px);
+  line-height:1.16;
+  letter-spacing:-.015em;
+  font-weight:700;
+  margin-bottom:22px;
+  color:var(--ink);
+  text-wrap:pretty;
+}
+h1.hero-h em{
+  font-style:normal;color:var(--cinnabar);white-space:nowrap;
+  background:linear-gradient(transparent 64%,rgba(163,48,42,.15) 64%);
+  padding:0 .02em;
+}
+.hero-sub{
+  font-size:16.5px;line-height:1.85;color:var(--ink-2);
+  max-width:672px;letter-spacing:.005em;
+  text-wrap:pretty;
+}
+.hero-sub b{color:var(--ink);font-weight:600}
+.hero-sub .nw{white-space:nowrap}
+.hero-sub .no-strong{
+  color:var(--cinnabar);font-weight:600;
+  border-bottom:1px dashed rgba(163,48,42,.4);padding-bottom:1px;
+  display:inline-block;white-space:nowrap;
+}
+.claims{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:0;
+  margin-top:44px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+}
+.claim{padding:20px 22px 21px;border-right:1px solid var(--rule)}
+.claim:last-child{border-right:none}
+.claim-k{
+  font-family:var(--serif);font-size:15px;font-weight:700;
+  letter-spacing:.06em;margin-bottom:5px;display:flex;align-items:center;gap:7px;
+}
+.claim-k svg{width:14px;height:14px;color:var(--cinnabar);flex:0 0 auto}
+.claim-v{font-size:12.5px;color:var(--ink-3);line-height:1.6}
+@media(max-width:720px){
+  .claims{grid-template-columns:1fr}
+  .claim{border-right:none;border-bottom:1px solid var(--rule);padding:16px 0}
+  .claim:last-child{border-bottom:none}
+  .hero{padding:52px 0 34px}
+}
+
+/* ---------- 面板 ---------- */
+.panel{margin-bottom:30px}
+.p-head{display:flex;align-items:baseline;gap:14px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--rule)}
+.p-num{
+  font-family:var(--mono);font-size:12px;font-weight:600;color:var(--cinnabar);
+  letter-spacing:.08em;padding-top:2px;
+}
+.p-title{font-family:var(--serif);font-size:20px;font-weight:700;letter-spacing:.03em}
+.p-hint{font-size:12.5px;color:var(--ink-3);margin-left:auto;text-align:right}
+@media(max-width:640px){.p-hint{display:none}}
+
+/* ---------- 输入 ---------- */
+.editor{
+  background:var(--paper-2);
+  border:1px solid var(--rule-2);
+  border-radius:10px;
+  box-shadow:var(--sh);
+  overflow:hidden;
+  transition:border-color .2s,box-shadow .2s;
+}
+.editor:focus-within{border-color:var(--ink-4);box-shadow:0 1px 2px rgba(26,24,20,.05),0 10px 30px -14px rgba(26,24,20,.24)}
+#src{
+  width:100%;min-height:212px;resize:vertical;
+  border:none;outline:none;background:transparent;
+  padding:20px 22px;
+  font-family:var(--mono);font-size:13px;line-height:2;
+  color:var(--ink);tab-size:2;
+}
+#src::placeholder{color:var(--ink-4);font-family:var(--mono);font-size:12.5px;line-height:1.95}
+.editor-bar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:10px 14px;border-top:1px solid var(--rule);background:var(--paper-3);
+}
+.tally{font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums;margin-right:auto;letter-spacing:.02em}
+.tally b{color:var(--cinnabar);font-weight:700;font-size:13px}
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:8px 15px;border-radius:6px;border:1px solid var(--rule-2);
+  background:var(--paper-2);color:var(--ink-2);
+  font-family:var(--sans);font-size:12.5px;font-weight:500;letter-spacing:.02em;
+  cursor:pointer;transition:.15s;white-space:nowrap;
+}
+.btn:hover{border-color:var(--ink-4);color:var(--ink);background:#fff}
+.btn:active{transform:translateY(1px)}
+.btn svg{width:13px;height:13px}
+.btn-primary{
+  background:var(--ink);border-color:var(--ink);color:#f7f4ec;
+  padding:9px 20px;font-weight:600;letter-spacing:.04em;
+}
+.btn-primary:hover{background:#000;border-color:#000;color:#fff}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-seal{background:var(--cinnabar);border-color:var(--cinnabar);color:#fdf6f2}
+.btn-seal:hover{background:#8f2823;border-color:#8f2823;color:#fff}
+.btn-sm{padding:5px 11px;font-size:11.5px;border-radius:5px}
+.filelabel{position:relative;overflow:hidden;display:inline-flex}
+.filelabel input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:200px}
+
+/* ---------- 进度 ---------- */
+.progress{padding:18px 22px;background:var(--paper-2);border:1px solid var(--rule-2);border-radius:10px;margin-bottom:22px;box-shadow:var(--sh)}
+.progress-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:11px;font-size:12.5px}
+.progress-top .lbl{color:var(--ink-2);font-weight:500}
+.progress-top .num{font-family:var(--mono);color:var(--ink-3);font-variant-numeric:tabular-nums}
+.bar{height:3px;background:var(--paper-3);border-radius:2px;overflow:hidden}
+.bar-in{height:100%;width:0;background:var(--cinnabar);transition:width .3s ease;border-radius:2px}
+
+/* ---------- 统计 ---------- */
+.stats{display:grid;grid-template-columns:1.35fr repeat(4,1fr);gap:0;border:1px solid var(--rule-2);border-radius:10px;overflow:hidden;background:var(--paper-2);box-shadow:var(--sh);position:relative}
+.stat{padding:17px 18px;border-right:1px solid var(--rule);position:relative}
+.stat:last-child{border-right:none}
+.stat-n{font-family:var(--mono);font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat-l{font-size:11px;letter-spacing:.12em;color:var(--ink-3);margin-top:5px;text-transform:uppercase}
+.stat.rate .stat-n{color:var(--cinnabar)}
+.stat.ok .stat-n{color:var(--ok)}
+.stat.fix .stat-n{color:var(--fix)}
+.stat.doubt .stat-n{color:var(--doubt)}
+.stat.miss .stat-n{color:var(--miss)}
+@media(max-width:720px){
+  .stats{grid-template-columns:repeat(3,1fr)}
+  .stat{border-bottom:1px solid var(--rule)}
+  .stat.rate{grid-column:span 3;border-right:none}
+  .stat-n{font-size:22px}
+}
+
+/* ---------- 筛选 ---------- */
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0 16px}
+.chip{
+  padding:6px 13px;border-radius:100px;border:1px solid var(--rule-2);
+  background:transparent;color:var(--ink-3);font-size:12.5px;cursor:pointer;
+  transition:.15s;font-family:var(--sans);display:inline-flex;align-items:center;gap:6px;
+}
+.chip:hover{border-color:var(--ink-4);color:var(--ink-2)}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#f7f4ec;font-weight:500}
+.chip .c{font-family:var(--mono);font-size:11px;opacity:.75;font-variant-numeric:tabular-nums}
+.chip.on .c{opacity:.9}
+
+/* ---------- 结果卡 ---------- */
+.list{display:flex;flex-direction:column;gap:12px}
+.card{
+  background:var(--paper-2);border:1px solid var(--rule-2);border-radius:9px;
+  overflow:hidden;transition:.18s;position:relative;
+}
+.card:hover{box-shadow:var(--sh);border-color:var(--ink-4)}
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--ink-4)}
+.card.s-ok::before{background:var(--ok)}
+.card.s-fix::before{background:var(--fix)}
+.card.s-doubt::before{background:var(--doubt)}
+.card.s-miss::before{background:var(--miss)}
+.card-head{display:flex;align-items:flex-start;gap:13px;padding:15px 18px 13px 20px}
+.card-idx{
+  font-family:var(--mono);font-size:11px;color:var(--ink-4);font-weight:600;
+  padding-top:3px;letter-spacing:.04em;flex:0 0 auto;min-width:20px;
+}
+.card-main{flex:1;min-width:0}
+.card-raw{
+  font-size:13px;line-height:1.75;color:var(--ink-2);
+  word-break:break-word;
+}
+.card-raw mark{background:rgba(163,48,42,.13);color:var(--cinnabar);padding:0 2px;border-radius:2px;font-weight:600}
+.badge{
+  flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:4px;font-size:11.5px;font-weight:700;
+  letter-spacing:.1em;white-space:nowrap;border:1px solid transparent;
+  font-family:var(--serif);
+}
+.badge.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-bd)}
+.badge.fix{background:var(--fix-bg);color:var(--fix);border-color:var(--fix-bd)}
+.badge.doubt{background:var(--doubt-bg);color:var(--doubt);border-color:var(--doubt-bd)}
+.badge.miss{background:var(--miss-bg);color:var(--miss);border-color:var(--miss-bd)}
+.badge.load{background:var(--paper-3);color:var(--ink-3);border-color:var(--rule-2)}
+.spin{width:9px;height:9px;border:1.5px solid currentColor;border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.card-body{padding:0 18px 15px 20px;display:flex;flex-direction:column;gap:12px}
+.evidence{
+  font-size:11.5px;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:6px 14px;
+  padding-top:1px;letter-spacing:.01em;
+}
+.evidence .ev{display:inline-flex;align-items:center;gap:5px}
+.evidence .ev b{color:var(--ink-2);font-weight:600;font-variant-numeric:tabular-nums}
+.evidence svg{width:11px;height:11px;opacity:.6}
+
+/* diff 表 */
+.diff{border:1px solid var(--rule);border-radius:6px;overflow:hidden;background:#fff}
+.diff-hd{
+  padding:7px 12px;background:var(--paper-3);border-bottom:1px solid var(--rule);
+  font-size:11px;letter-spacing:.1em;color:var(--ink-3);font-weight:600;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.diff-row{display:grid;grid-template-columns:78px 1fr;border-bottom:1px solid var(--rule)}
+.diff-row:last-child{border-bottom:none}
+.diff-k{
+  padding:8px 10px;font-size:11px;color:var(--ink-3);letter-spacing:.04em;
+  background:var(--paper-2);border-right:1px solid var(--rule);font-weight:500;
+}
+.diff-v{padding:7px 11px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.d-line{display:flex;gap:7px;align-items:flex-start;font-family:var(--mono);font-size:12px;line-height:1.6}
+.d-sig{flex:0 0 10px;text-align:center;font-weight:700;opacity:.85;user-select:none}
+.d-old{color:#9a3a34}
+.d-old .d-sig{color:#b5504a}
+.d-old .d-txt{text-decoration:line-through;text-decoration-color:rgba(181,80,74,.45);word-break:break-word}
+.d-new{color:#256047}
+.d-new .d-sig{color:var(--ok)}
+.d-new .d-txt{word-break:break-word}
+.d-same{color:var(--ink-2)}
+.d-same .d-sig{color:var(--ink-4)}
+.d-txt{min-width:0}
+.diff-row.hot{background:rgba(163,48,42,.028)}
+
+.card-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 18px 14px 20px}
+.card-foot .sp{flex:1}
+.linkout{
+  font-size:11.5px;color:var(--ink-3);text-decoration:none;display:inline-flex;align-items:center;gap:4px;
+  padding:4px 8px;border-radius:4px;transition:.15s;
+}
+.linkout:hover{background:var(--paper-3);color:var(--ink)}
+.linkout svg{width:10px;height:10px}
+.note{
+  font-size:12px;line-height:1.65;padding:9px 12px;border-radius:5px;
+  display:flex;gap:8px;align-items:flex-start;
+}
+.note svg{width:13px;height:13px;flex:0 0 auto;margin-top:2px}
+.note.warn{background:var(--doubt-bg);color:#6b5c10;border:1px solid var(--doubt-bd)}
+.note.bad{background:var(--miss-bg);color:#7a3030;border:1px solid var(--miss-bd)}
+.note.good{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-bd)}
+
+/* ---------- 体例区 ---------- */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.tab{
+  padding:6px 12px;border-radius:5px;border:1px solid var(--rule-2);background:transparent;
+  font-size:12px;color:var(--ink-3);cursor:pointer;transition:.15s;font-family:var(--sans);
+}
+.tab:hover{border-color:var(--ink-4);color:var(--ink-2)}
+.tab.on{background:var(--paper-3);border-color:var(--ink-3);color:var(--ink);font-weight:600}
+.preview{
+  background:#fff;border:1px solid var(--rule-2);border-radius:9px;
+  padding:22px 24px;font-size:13px;line-height:2.05;color:var(--ink-2);
+  box-shadow:var(--sh);max-height:420px;overflow:auto;
+}
+.preview p{margin-bottom:11px;padding-left:26px;text-indent:-26px;word-break:break-word}
+.preview p:last-child{margin-bottom:0}
+.preview .pidx{font-family:var(--mono);font-size:10.5px;color:var(--ink-4);margin-right:8px;text-indent:0;display:inline-block;min-width:16px}
+.preview .ph{color:var(--ink-4);font-style:italic}
+.rawflag{
+  display:inline-block;margin-left:8px;font-size:10px;line-height:1.6;
+  color:var(--fix);background:var(--fix-bg);border:1px solid var(--fix-bd);
+  padding:0 6px;border-radius:3px;vertical-align:middle;text-indent:0;
+  white-space:nowrap;letter-spacing:.02em;
+}
+
+/* ---------- 导出 ---------- */
+.export-row{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+.meta-line{
+  margin-top:14px;padding-top:14px;border-top:1px dashed var(--rule);
+  font-size:11.5px;color:var(--ink-3);display:flex;gap:16px;flex-wrap:wrap;
+}
+
+/* ---------- 印章 ---------- */
+.stamp{
+  position:absolute;right:14px;top:50%;
+  width:62px;height:62px;border:2px solid var(--cinnabar);border-radius:50%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:var(--cinnabar);transform:translateY(-50%) rotate(-12deg);opacity:.88;
+  font-family:var(--serif);
+  box-shadow:inset 0 0 0 1.5px rgba(163,48,42,.2);
+  pointer-events:none;
+  background:rgba(252,250,244,.6);
+  animation:stampin .5s cubic-bezier(.2,1.5,.4,1) both;
+}
+@keyframes stampin{
+  from{transform:translateY(-50%) rotate(-12deg) scale(1.7);opacity:0}
+  to{transform:translateY(-50%) rotate(-12deg) scale(1);opacity:.88}
+}
+.stamp .s-top{font-size:7.5px;letter-spacing:.12em;margin-bottom:-1px}
+.stamp .s-num{font-family:var(--mono);font-size:16px;font-weight:700;line-height:1.05;letter-spacing:-.02em}
+.stamp .s-bot{font-size:7px;letter-spacing:.1em;margin-top:1px}
+@media(max-width:720px){.stamp{width:52px;height:52px;right:8px}.stamp .s-num{font-size:13px}}
+
+/* ---------- 空态 ---------- */
+.empty{
+  text-align:center;padding:56px 20px;border:1px dashed var(--rule-2);border-radius:10px;
+  background:rgba(252,250,244,.5);
+}
+.empty-t{font-family:var(--serif);font-size:16px;color:var(--ink-2);margin-bottom:7px;letter-spacing:.04em}
+.empty-s{font-size:12.5px;color:var(--ink-4)}
+
+/* ---------- 页脚 ---------- */
+footer{
+  margin-top:64px;padding:34px 0 52px;border-top:1px solid var(--rule);
+  font-size:12px;color:var(--ink-3);line-height:1.95;
+}
+footer h4{font-size:11px;letter-spacing:.16em;color:var(--ink-2);margin-bottom:9px;font-weight:600;text-transform:uppercase}
+footer p{margin-bottom:8px;max-width:760px}
+footer a{color:var(--ink-2);text-decoration:none;border-bottom:1px solid var(--rule-2)}
+footer a:hover{color:var(--cinnabar);border-color:var(--cinnabar)}
+.foot-grid{display:grid;grid-template-columns:1fr 1fr;gap:36px}
+@media(max-width:720px){.foot-grid{grid-template-columns:1fr;gap:24px}}
+.foot-brand{font-family:var(--serif);font-size:15px;color:var(--ink);letter-spacing:.1em;margin-bottom:8px}
+
+.hidden{display:none!important}
+.fade-in{animation:fi .35s ease both}
+@keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- 环境警示条 ---------- */
+.netbar{
+  display:flex;gap:12px;align-items:flex-start;
+  margin-top:22px;padding:14px 16px;border-radius:9px;
+  background:var(--fix-bg);border:1px solid var(--fix-bd);color:#6b4a10;
+  font-size:13px;line-height:1.72;
+}
+.netbar svg{width:19px;height:19px;flex:0 0 auto;margin-top:1px;color:var(--fix)}
+.netbar .nb-txt{flex:1;min-width:0}
+.netbar .nb-txt b{display:block;margin-bottom:3px;color:#5a3d08;font-size:13.5px}
+.netbar .nb-hint{display:block;margin-top:5px;padding-top:5px;border-top:1px dashed rgba(150,96,15,.3);color:#8a6a2a;font-size:12.5px}
+.netbar .btn{flex:0 0 auto;background:#fff;border-color:var(--fix-bd);color:#6b4a10}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#">
+      <svg class="seal" viewBox="0 0 40 40" aria-hidden="true">
+        <rect x="1.4" y="1.4" width="37.2" height="37.2" rx="5" fill="none" stroke="currentColor" stroke-width="2.4"/>
+        <rect x="5" y="5" width="30" height="30" rx="2.5" fill="none" stroke="currentColor" stroke-width=".7" opacity=".45"/>
+        <text x="20" y="27.4" text-anchor="middle" font-family="Songti SC,SimSun,serif" font-size="19" font-weight="700" fill="currentColor">引</text>
+      </svg>
+      <span class="brand-txt">
+        <span class="brand-cn">征引考</span>
+        <span class="brand-en">Reference Verifier</span>
+      </span>
+    </a>
+    <div class="topnote"><i class="dot"></i><span>纯本地核验 · 文献不经任何服务器</span></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div id="netBanner" class="netbar hidden"></div>
+
+  <section class="hero">
+    <div class="eyebrow">AI 时代的参考文献核验</div>
+    <h1 class="hero-h">真实、可查、<em>可引</em>。</h1>
+    <p class="hero-sub">
+     把 AI 递给你的那串参考文献丢进来，逐条比对 CrossRef 与 OpenAlex 的注册记录。
+      <span class="nw">查得到</span>，就还它一个准数，把错的字段逐字标出来；
+      <span class="nw">查不到</span>，就直说查不到 ——
+      <span class="no-strong">不补全、不猜测、不生成</span>。
+    </p>
+
+    <div class="claims">
+      <div class="claim">
+        <div class="claim-k">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6L9 17l-5-5"/></svg>
+          逐字段比对
+        </div>
+        <div class="claim-v">标题、作者、年、卷、期、页、DOI 各自单独核对</div>
+      </div>
+      <div class="claim">
+        <div class="claim-k">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          只读元数据
+        </div>
+        <div class="claim-v">不做生成式补全，展示字段均来自数据源原始返回</div>
+      </div>
+      <div class="claim">
+        <div class="claim-k">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+          不上传一个字
+        </div>
+        <div class="claim-v">核验在浏览器内完成，你的稿子不出本机</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="panelInput">
+    <div class="p-head">
+      <span class="p-num">01</span>
+      <span class="p-title">贴入参考文献</span>
+      <span class="p-hint">一行一条 · APA / GB/T 7714 / IEEE / MLA / 纯 DOI 均可</span>
+    </div>
+
+    <div class="editor">
+      <textarea id="src" spellcheck="false" placeholder="例如：
+[1] LeCun Y, Bengio Y, Hinton G. Deep learning[J]. Nature, 2015, 521(7553): 436-444. DOI:10.1038/nature14539
+[2] Vaswani A, Shazeer N, Parmar N, et al. Attention is all you need[C]//NeurIPS. 2017: 5998-6008.
+[3] 王磊, 陈静. 深度学习在药物靶点预测中的应用[J]. 中国生物医学工程学报, 2021, 40(3): 288-296.
+
+也可以只贴 DOI，一行一个：10.1038/nature14539"></textarea>
+      <div class="editor-bar">
+        <span class="tally" id="tally">等待输入</span>
+        <label class="filelabel btn btn-sm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5-5 5 5"/><path d="M12 5v12"/></svg>
+          上传 .bib / .ris / .txt
+          <input type="file" id="fileIn" accept=".bib,.ris,.txt,.md,.enw">
+        </label>
+        <button class="btn btn-sm" id="btnDemo">载入示例</button>
+        <button class="btn btn-sm" id="btnClear">清空</button>
+        <button class="btn btn-primary" id="btnRun" disabled>开始核验</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel hidden" id="panelProg">
+    <div class="progress">
+      <div class="progress-top">
+        <span class="lbl" id="progLbl">正在核验…</span>
+        <span class="num" id="progNum">0 / 0</span>
+      </div>
+      <div class="bar"><div class="bar-in" id="progBar"></div></div>
+    </div>
+  </section>
+
+  <section class="panel hidden" id="panelResult">
+    <div class="p-head">
+      <span class="p-num">02</span>
+      <span class="p-title">核验结果</span>
+      <span class="p-hint" id="resultHint"></span>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="filters" id="filters"></div>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section class="panel hidden" id="panelFormat">
+    <div class="p-head">
+      <span class="p-num">03</span>
+      <span class="p-title">规范化与导出</span>
+      <span class="p-hint">已采用修正的条目在此按所选体例重排</span>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div class="preview" id="preview"></div>
+    <div class="export-row">
+      <button class="btn btn-seal" id="btnCopy">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        复制规范列表
+      </button>
+      <button class="btn" id="btnMd">核验报告 .md</button>
+      <button class="btn" id="btnTxt">文献列表 .txt</button>
+      <button class="btn" id="btnBib">.bib</button>
+      <button class="btn" id="btnRis">.ris</button>
+    </div>
+    <div class="meta-line" id="metaLine"></div>
+  </section>
+
+  <section class="panel" id="panelEmpty">
+    <div class="empty">
+      <div class="empty-t">还没有核验记录</div>
+      <div class="empty-s">贴入一条文献，或者点「载入示例」看看它怎么工作</div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <div class="foot-brand">征引考 · 说明</div>
+        <p>核验数据来自 <a href="https://api.crossref.org" target="_blank" rel="noopener">CrossRef REST API</a> 与 <a href="https://api.openalex.org" target="_blank" rel="noopener">OpenAlex API</a>，均为公开学术元数据服务。本站不生成、不改写任何字段内容，仅做检索、比对与排版。</p>
+        <p>「未见」不等于造假。未被收录的中文期刊、会议论文、内部印行资料、网络文献都可能查无记录 —— 请点开「手动检索」到知网、百度学术复核，再下结论。</p>
+      </div>
+      <div>
+        <h4>判定的四档含义</h4>
+        <p><b style="color:var(--ok)">宜引</b> · 数据源有确切记录，关键字段一致，可直接引用。</p>
+        <p><b style="color:var(--fix)">需修</b> · 找到了对应文献，但某个字段（DOI / 年份 / 卷期 / 页码）对不上，需替换。</p>
+        <p><b style="color:var(--doubt)">存疑</b> · 有相似记录但匹配度不足，可能张冠李戴，需人工确认。</p>
+        <p><b style="color:var(--miss)">未见</b> · 两个数据源均无对应记录，可能为编造或未被收录。</p>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+"use strict";
+
+/* =========================================================
+   征引考 · 参考文献核验
+   数据源：CrossRef REST API / OpenAlex API（均开放 CORS）
+   所有核验在浏览器内完成，文献内容不上传任何服务器
+   ========================================================= */
+
+const $ = (id) => document.getElementById(id);
+const CF = "https://api.crossref.org/works";
+const OA = "https://api.openalex.org/works";
+
+const STATE = {
+  items: [],          // 待核验条目
+  results: [],        // 核验结果
+  filter: "all",
+  style: "apa",
+  running: false,
+  sources: { crossref: 0, openalex: 0, failed: 0 }
+};
+
+const STATUS = {
+  ok:    { cls: "ok",    label: "宜引", tip: "数据源有确切记录，关键字段一致" },
+  fix:   { cls: "fix",   label: "需修", tip: "找到对应文献，但有字段对不上" },
+  doubt: { cls: "doubt", label: "存疑", tip: "有相似记录但匹配度不足，需人工确认" },
+  miss:  { cls: "miss",  label: "未见", tip: "两个数据源均无对应记录" },
+  err:   { cls: "load",  label: "待核", tip: "网络或接口异常，未能完成核验" },
+  run:   { cls: "load",  label: "核验中", tip: "" }
+};
+
+/* ---------------- 文本工具 ---------------- */
+
+function norm(s) {
+  if (!s) return "";
+  return String(s)
+    .replace(/<[^>]*>/g, "")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ")
+    .toLowerCase()
+    .replace(/[\u2018\u2019\u201c\u201d]/g, "'")
+    .replace(/[·・]/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function bigrams(s) {
+  const t = norm(s);
+  const m = new Map();
+  if (t.length < 2) { if (t) m.set(t, 1); return m; }
+  for (let i = 0; i < t.length - 1; i++) {
+    const g = t.slice(i, i + 2);
+    m.set(g, (m.get(g) || 0) + 1);
+  }
+  return m;
+}
+
+function diceBG(a, b) {
+  const A = bigrams(a), B = bigrams(b);
+  let inter = 0, tot = 0;
+  for (const [k, v] of A) { tot += v; if (B.has(k)) inter += Math.min(v, B.get(k)); }
+  for (const [, v] of B) tot += v;
+  return tot ? (2 * inter) / tot : 0;
+}
+
+function jacTok(a, b) {
+  const A = new Set(norm(a).split(" ").filter(Boolean));
+  const B = new Set(norm(b).split(" ").filter(Boolean));
+  if (!A.size || !B.size) return 0;
+  let i = 0;
+  for (const x of A) if (B.has(x)) i++;
+  return i / (A.size + B.size - i);
+}
+
+/** 标题相似度：字符二元组 + 词集合，取高者，短串加惩罚 */
+function titleSim(a, b) {
+  if (!a || !b) return 0;
+  const na = norm(a), nb = norm(b);
+  if (!na || !nb) return 0;
+  if (na === nb) return 1;
+  if (na.length > 6 && nb.length > 6 && (na.includes(nb) || nb.includes(na))) {
+    const r = Math.min(na.length, nb.length) / Math.max(na.length, nb.length);
+    if (r > 0.72) return 0.9 + r * 0.1;
+  }
+  const s = Math.max(diceBG(na, nb), jacTok(na, nb));
+  // 极短标题的相似度容易虚高，压一压
+  const L = Math.min(na.length, nb.length);
+  const damp = L < 12 ? 0.82 + L / 12 * 0.18 : 1;
+  return Math.min(1, s * damp);
+}
+
+function normDoi(d) {
+  if (!d) return "";
+  return String(d).trim().toLowerCase()
+    .replace(/^https?:\/\/(dx\.)?doi\.org\//, "")
+    .replace(/^doi:\s*/, "")
+    .replace(/[.,;)\]]+$/, "");
+}
+
+function normPages(p) {
+  if (!p) return "";
+  let s = String(p).trim().toLowerCase()
+    .replace(/^pp?\.?\s*/, "")
+    .replace(/[–—~ー]/g, "-")
+    .replace(/\s+/g, "");
+  // 436-44 → 436-444 展开
+  const m = s.match(/^([a-z]?)(\d+)-([a-z]?)(\d+)$/);
+  if (m) {
+    const [, pa, a, pb, b] = m;
+    let bb = b;
+    if (!pb && b.length < a.length) bb = a.slice(0, a.length - b.length) + b;
+    if (pa && !pb) return a + "-" + (pa === "e" ? "e" : "") + bb;
+    return a + "-" + bb;
+  }
+  return s;
+}
+
+function eqStr(a, b) { return norm(a) === norm(b); }
+function eqPages(a, b) { return normPages(a) === normPages(b); }
+function eqVolIss(a, b) {
+  const x = norm(a).replace(/\s/g, ""), y = norm(b).replace(/\s/g, "");
+  return x === y || (!x && !y);
+}
+
+/* ---------------- 条目切分 ---------------- */
+
+function hasYear(s) { return /(1[6-9]\d{2}|20[0-4]\d)/.test(s); }
+
+function splitEntries(text) {
+  const rawLines = text.split(/\r?\n/).map(l => l.replace(/\s+$/, "")).filter(l => l.trim());
+  const out = [];
+  let buf = "";
+
+  const numStart = /^\s*(?:[\[【(（]\s*\d{1,3}\s*[\]】)）]|\d{1,3}\s*[.、．)）]|[①-⑳])\s*/;
+
+  for (const line of rawLines) {
+    const t = line.trim();
+    // 纯分隔线
+    if (/^[-=_—–\s]{3,}$/.test(t)) continue;
+
+    const isNumbered = numStart.test(t);
+    const cleaned = t.replace(numStart, "").trim();
+    if (!cleaned) continue;
+
+    const bufDone = hasYear(buf) && buf.length > 30;
+    if (!buf || isNumbered || bufDone) {
+      if (buf) out.push(buf.trim());
+      buf = cleaned;
+    } else {
+      buf += " " + cleaned;
+    }
+  }
+  if (buf.trim()) out.push(buf.trim());
+  return out.filter(s => s.length > 6);
+}
+
+/* ---------------- 字段抽取 ---------------- */
+
+function extractDoi(s) {
+  const m = s.match(/\b(10\.\d{4,9}\/[-._;()/:a-zA-Z0-9<>]+)/);
+  if (!m) return "";
+  return normDoi(m[1].replace(/[.,;)\]]+$/, ""));
+}
+
+function extractYear(s) {
+  const paren = s.match(/[（(]\s*((?:19|20)\d{2})[a-z]?\s*[)）]/);
+  if (paren) return parseInt(paren[1], 10);
+  const all = [...s.matchAll(/\b((?:1[6-9]\d{2}|20[0-4]\d))\b/g)];
+  if (!all.length) return 0;
+  return parseInt(all[0][1], 10);
+}
+
+function extractVolIssPages(s) {
+  const r = { volume: "", issue: "", pages: "" };
+  let m;
+
+  // vol. 12, no. 3, pp. 45-67
+  if ((m = s.match(/\bvol\.?\s*(\d{1,6})/i))) r.volume = m[1];
+  if ((m = s.match(/\bno\.?\s*(\d{1,6}[A-Za-z]?)\b/i))) r.issue = m[1];
+  if ((m = s.match(/(?:pp?\.?\s*)([A-Za-z]?\d+\s*[-–—~]\s*[A-Za-z]?\d+|[A-Za-z]?\d+)/i))) r.pages = m[1];
+
+  // 521(7553): 436-444  /  40(3): 288-296  /  521 (7553), 436–444
+  if (!r.volume || !r.pages) {
+    const m2 = s.match(/(\d{1,5})\s*[（(]\s*([\dA-Za-z\-]{1,10})\s*[)）]\s*[:：,，]?\s*([A-Za-z]?\d+\s*[-–—~]\s*[A-Za-z]?\d+|[A-Za-z]?\d+)?/);
+    if (m2) {
+      if (!r.volume) r.volume = m2[1];
+      if (!r.issue) r.issue = m2[2];
+      if (!r.pages && m2[3]) r.pages = m2[3];
+    }
+  }
+  // 2015, 521: 436-444  /  2017: 5998-6008（排除把年份当卷号）
+  if (!r.pages || !r.volume) {
+    const m3 = s.match(/[,，.．]\s*(\d{1,5})\s*[:：]\s*([A-Za-z]?\d+\s*[-–—~]\s*[A-Za-z]?\d+)/);
+    if (m3) {
+      const looksYear = m3[1].length === 4 && Number(m3[1]) >= 1800 && Number(m3[1]) <= 2035;
+      if (!looksYear && !r.volume) r.volume = m3[1];
+      if (!r.pages) r.pages = m3[2];
+    }
+  }
+  r.pages = normPages(r.pages);
+  return r;
+}
+
+const TYPE_MAP = {
+  "J": "journal-article", "C": "proceedings-article", "M": "book",
+  "D": "dissertation", "N": "newspaper-article", "R": "report",
+  "S": "standard", "P": "patent", "EB/OL": "web", "J/OL": "journal-article",
+  "DB/OL": "dataset", "Z": "other"
+};
+
+function extractType(s) {
+  const m = s.match(/\[([A-Z]{1,3}(?:\/[A-Z]{2})?)\]/);
+  if (m && TYPE_MAP[m[1]]) return TYPE_MAP[m[1]];
+  if (/\[C\]|conference|proceedings|symposium|workshop/i.test(s)) return "proceedings-article";
+  if (/\[D\]|dissertation|thesis|学位论文/i.test(s)) return "dissertation";
+  if (/\[M\]|press|出版社|publisher:\s/i.test(s)) return "book";
+  return "journal-article";
+}
+
+/** 从条目里剥出题名 —— 按体例特征分路，最后兜底 */
+function extractTitle(raw, doi) {
+  let s = raw;
+  if (doi) s = s.replace(new RegExp(doi.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), " ");
+  s = s.replace(/DOI:?\s*\S+/gi, " ").replace(/\s+/g, " ").trim();
+
+  // 1) GB/T 7714：题名[J]. 刊名
+  let m = s.match(/^(.{4,300}?)\s*[[［]\s*([A-Z]{1,3}(?:\/[A-Z]{2})?)\s*[\]］]/);
+  if (m) {
+    let head = m[1];
+    // 作者段与题名之间是 ". " ，取最后一段
+    const parts = head.split(/[.．]\s+/);
+    let t = parts.length > 1 ? parts[parts.length - 1] : head;
+    t = t.replace(/^[.．\s]+/, "").trim();
+    if (t.length > 3) return cleanTitle(t);
+  }
+
+  // 2) 引号包裹（IEEE / MLA / Chicago / APA 变体）
+  m = s.match(/[“"']([^“”"']{6,300})[”"']/);
+  if (m) return cleanTitle(m[1]);
+
+  // 3) APA：(2015). 题名. 刊名
+  m = s.match(/[（(]\s*(?:19|20)\d{2}[a-z]?\s*[)）]\s*[.．]\s*(.{6,300}?)\s*[.．]\s/);
+  if (m) return cleanTitle(m[1]);
+
+  // 4) Vancouver：作者. 题名. 刊名. 2015;
+  m = s.match(/^(.{3,200}?)[.．]\s+(.{6,300}?)[.．]\s+[^.]{2,80}[.．]\s*(?:19|20)\d{2}/);
+  if (m) return cleanTitle(m[2]);
+
+  // 5) 兜底：按句点切段，跳过作者段
+  const segs = s.split(/[.．]\s+/).map(x => x.trim()).filter(x => x.length > 5);
+  if (segs.length >= 2) {
+    // 作者段特征：含大量逗号缩写、无动词性词汇
+    const cand = segs.find((seg, i) => i > 0 && !/^(doi|https?)/i.test(seg) && seg.length > 8);
+    if (cand) return cleanTitle(cand);
+  }
+  if (segs.length === 1) return cleanTitle(segs[0]);
+  return cleanTitle(s.slice(0, 200));
+}
+
+function cleanTitle(t) {
+  return String(t)
+    .replace(/<[^>]*>/g, "")
+    .replace(/[[［]\s*[A-Z]{1,3}(?:\/[A-Z]{2})?\s*[\]］]/g, "")
+    .replace(/^[\[\]【】\s.,，。:：;；\-–—]+/, "")
+    .replace(/[\[\]【】\s.,，。:：;；\-–—]+$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** 定位作者段：按体例特征找边界，引号 > (年份) > [类型] > 句点 */
+function authorHead(s) {
+  let p;
+  p = s.indexOf('"');
+  if (p > 2) return s.slice(0, p);
+  p = s.search(/[（(]\s*(?:19|20)\d{2}[a-z]?\s*[)）]/);
+  if (p > 2) return s.slice(0, p);
+  p = s.search(/\[[A-Z]{1,3}(?:\/[A-Z]{2})?\]/);
+  if (p > 2) return s.slice(0, p);
+  p = s.search(/[.．]\s{1,}/);
+  if (p > 2) return s.slice(0, p);
+  return s;
+}
+
+/** 抽取作者：返回 [{family, given, name, cn}] */
+function extractAuthors(raw, title) {
+  let s = raw;
+  if (title) s = s.replace(title, " ");
+  s = s.replace(/DOI:?\s*\S+/gi, " ");
+
+  let head = authorHead(s).replace(/\[[A-Z]{1,3}(?:\/[A-Z]{2})?\]/g, " ").trim();
+
+  // 中文作者：张三, 李四, 王五
+  if (/[\u4e00-\u9fa5]/.test(head)) {
+    const cnNames = [];
+    for (const n of head.split(/[,，、;；]/)) {
+      const t = n.trim().replace(/^[\s\[\]【】()（）.．]+|[\s\[\]【】()（）.．]+$/g, "");
+      if (/^[\u4e00-\u9fa5]{2,5}$/.test(t)) cnNames.push({ name: t, family: t, given: "", cn: true });
+    }
+    if (cnNames.length) return cnNames.slice(0, 30);
+  }
+
+  // 英文：Surname, I. N. / I. N. Surname / Surname I. / Surname
+  const out = [];
+  const chunks = head.split(/\s*(?:,|;|\band\b|&)\s*/).map(x => x.trim()).filter(Boolean);
+  const buf = [];
+  for (const c of chunks) {
+    if (!c) continue;
+    if (/^(et\s*al\.?|等)$/i.test(c)) break;
+    buf.push(c);
+  }
+  const reFamInit = /^([A-Z][a-zA-Z'’\-]+)\s+((?:[A-Z]\.?\s*){1,3}[A-Z]?\.?)$/;
+  const reInitFam = /^((?:[A-Z]\.?\s*)+)\s+([A-Z][a-zA-Z'’\-]+)$/;
+  const reInits = /^[A-Z]\.?(\s*[A-Z]\.?)*$/;
+
+  let i = 0;
+  while (i < buf.length) {
+    const a = buf[i], b = buf[i + 1] || "";
+    let mm;
+    if ((mm = a.match(reInitFam))) {                 // "Y. LeCun"
+      out.push({ family: mm[2], given: mm[1].trim(), name: a });
+      i += 1;
+    } else if (/^[A-Z][a-zA-Z'’\-]+$/.test(a) && reInits.test(b) && b) {  // "LeCun" + "Y."
+      out.push({ family: a, given: b, name: a + ", " + b });
+      i += 2;
+    } else if ((mm = a.match(reFamInit))) {          // "LeCun Y"
+      out.push({ family: mm[1], given: mm[2].trim(), name: a });
+      i += 1;
+    } else if (/^[A-Z][a-zA-Z'’\-]+$/.test(a)) {     // 仅姓
+      out.push({ family: a, given: "", name: a });
+      i += 1;
+    } else {
+      i += 1;
+    }
+  }
+  return out.slice(0, 30);
+}
+
+/** 刊名启发式 */
+function extractJournal(raw, title, doi) {
+  let s = raw;
+  if (title) s = s.replace(title, " ");
+  if (doi) s = s.replace(new RegExp(doi.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), " ");
+  s = s.replace(/DOI:?\s*\S+/gi, " ");
+
+  // GB/T 必须在剥掉 [J]/[C] 之前匹配，否则特征丢失
+  // [J]. 刊名, 2015
+  let m = s.match(/[\]］]\s*[.．]\s*([^,，.．]{2,90})\s*[,，]\s*(?:19|20)\d{2}/);
+  if (m) return m[1].trim();
+  // [C]//会议名. 2017
+  m = s.match(/[\]］]\s*\/\/\s*([^,，.．]{2,90}?)\s*[.．]\s*(?:19|20)\d{2}/);
+  if (m) return m[1].trim();
+
+  s = s.replace(/\[[A-Z]{1,3}(?:\/[A-Z]{2})?\]/g, " ");
+  // 剥标题后残留的引号与空逗号会打断正则
+  s = s.replace(/[“”"'']/g, " ").replace(/\s*[,，]\s*(?=[,，])/g, "").replace(/\s+/g, " ");
+
+  // vol. 前的那段（IEEE）
+  m = s.match(/[,，]\s*([^,，]{3,90})\s*,\s*vol\./i);
+  if (m) return m[1].trim();
+
+  // APA：题名. 刊名, 521(7553)
+  m = s.match(/[.．]\s*([^,.．]{3,90})\s*,\s*\d{1,5}\s*[（(]/);
+  if (m) return m[1].trim();
+
+  // IEEE 会议：in Advances in X, 2017
+  m = s.match(/[,，]\s*(?:in\s+)?([A-Z][^,，.．]{2,88}?)\s*[,，]\s*(?:19|20)\d{2}/);
+  if (m) return m[1].trim();
+
+  m = s.match(/[.．]\s*([^,.．]{3,90})\s*,\s*(?:19|20)\d{2}\b/);
+  if (m) return m[1].trim();
+
+  // Vancouver：题名. 刊名. 2015;521
+  m = s.match(/[.．]\s*([^,.．]{3,90})\s*[.．]\s*(?:19|20)\d{2}\s*;/);
+  if (m) return m[1].trim();
+
+  return "";
+}
+
+/* ---------------- 单条解析 ---------------- */
+
+function parseEntry(raw) {
+  const doi = extractDoi(raw);
+  const title = extractTitle(raw, doi);
+  const authors = extractAuthors(raw, title);
+  const vip = extractVolIssPages(raw);
+  return {
+    raw: raw.trim(),
+    doi,
+    title,
+    authors,
+    year: extractYear(raw),
+    journal: extractJournal(raw, title, doi),
+    volume: vip.volume,
+    issue: vip.issue,
+    pages: vip.pages,
+    type: extractType(raw),
+    applied: false,
+    best: null
+  };
+}
+
+/* ---------------- BibTeX / RIS ---------------- */
+
+function parseBib(text) {
+  const out = [];
+  const chunks = text.split(/@(?=[a-zA-Z]+\s*[{(])/).filter(c => c.trim());
+  for (const ch of chunks) {
+    const typeM = ch.match(/^([a-zA-Z]+)\s*[{(]/);
+    const typeRaw = typeM ? typeM[1].toLowerCase() : "article";
+    const body = ch.slice(typeM ? typeM[0].length - 1 : 0);
+    const f = {};
+    const re = /(\w+)\s*=\s*/g;
+    let m;
+    const keys = [];
+    while ((m = re.exec(body))) keys.push({ k: m[1].toLowerCase(), i: re.lastIndex });
+    for (let i = 0; i < keys.length; i++) {
+      const start = keys[i].i;
+      const end = i + 1 < keys.length ? keys[i + 1].i : body.length;
+      let v = body.slice(start, end).trim().replace(/,\s*$/, "");
+      v = bibValue(v);
+      if (v) f[keys[i].k] = v;
+    }
+    if (!f.title && !f.doi) continue;
+    const authors = (f.author || "").split(/\s+and\s+/).map(a => a.trim()).filter(Boolean).map(a => {
+      if (a.includes(",")) {
+        const [fam, giv] = a.split(",").map(x => x.trim());
+        return { family: fam, given: giv || "", name: a, cn: /[\u4e00-\u9fa5]/.test(a) };
+      }
+      const parts = a.split(/\s+/);
+      const fam = parts.pop();
+      return { family: fam, given: parts.join(" "), name: a, cn: /[\u4e00-\u9fa5]/.test(a) };
+    });
+    out.push({
+      raw: f.title || f.doi,
+      doi: normDoi(f.doi),
+      title: cleanTitle(f.title || ""),
+      authors,
+      year: parseInt((f.year || f.date || "").match(/((?:19|20)\d{2})/)?.[1] || 0, 10),
+      journal: f.journal || f.booktitle || f.publisher || "",
+      volume: f.volume || "",
+      issue: f.number || "",
+      pages: normPages(f.pages || ""),
+      type: typeRaw === "inproceedings" ? "proceedings-article" : typeRaw === "book" ? "book" : "journal-article",
+      applied: false, best: null
+    });
+  }
+  return out;
+}
+
+function bibValue(v) {
+  v = v.trim();
+  if (v.startsWith("{")) {
+    let d = 0;
+    for (let i = 0; i < v.length; i++) {
+      if (v[i] === "{") d++;
+      else if (v[i] === "}") { d--; if (d === 0) return v.slice(1, i).replace(/[{}]/g, ""); }
+    }
+    return v.slice(1).replace(/[{}]/g, "");
+  }
+  if (v.startsWith('"')) {
+    const e = v.lastIndexOf('"');
+    return e > 0 ? v.slice(1, e) : v.slice(1);
+  }
+  return v.replace(/,$/, "").trim();
+}
+
+function parseRis(text) {
+  const out = [];
+  const blocks = text.split(/^ER\s*-\s*$/m);
+  const tag = (b, t) => [...b.matchAll(new RegExp("^" + t + "\\s*-\\s*(.+)$", "gm"))].map(m => m[1].trim());
+  for (const b of blocks) {
+    if (!/^TY\s*-/m.test(b)) continue;
+    const title = (tag(b, "TI")[0] || tag(b, "T1")[0] || "");
+    const doi = (tag(b, "DO")[0] || "");
+    if (!title && !doi) continue;
+    const authors = [...tag(b, "AU"), ...tag(b, "A1")].map(a => {
+      if (a.includes(",")) { const [f, g] = a.split(",").map(x => x.trim()); return { family: f, given: g || "", name: a, cn: /[\u4e00-\u9fa5]/.test(a) }; }
+      const p = a.split(/\s+/); const fam = p.pop();
+      return { family: fam, given: p.join(" "), name: a, cn: /[\u4e00-\u9fa5]/.test(a) };
+    });
+    const ty = (tag(b, "TY")[0] || "JOUR").toUpperCase();
+    out.push({
+      raw: title,
+      doi: normDoi(doi),
+      title: cleanTitle(title),
+      authors,
+      year: parseInt((tag(b, "PY")[0] || tag(b, "Y1")[0] || "").match(/((?:19|20)\d{2})/)?.[1] || 0, 10),
+      journal: tag(b, "JO")[0] || tag(b, "T2")[0] || tag(b, "JA")[0] || "",
+      volume: tag(b, "VL")[0] || "",
+      issue: tag(b, "IS")[0] || "",
+      pages: normPages((tag(b, "SP")[0] || "") + (tag(b, "EP")[0] ? "-" + tag(b, "EP")[0] : "")),
+      type: ty.includes("CONF") ? "proceedings-article" : ty.includes("BOOK") ? "book" : "journal-article",
+      applied: false, best: null
+    });
+  }
+  return out;
+}
+
+/* ---------------- 网络层 ---------------- */
+
+function timeoutFetch(url, ms = 14000) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  return fetch(url, { signal: ctl.signal, headers: { Accept: "application/json" } })
+    .finally(() => clearTimeout(t));
+}
+
+/* 网络闸门：CrossRef 限流 1 req/s，串行 + 自适应间隔，别把对方打毛 */
+const NET = { ok: null, checked: false, gap: 320, last: 0, fails: 0 };
+
+function gate() {
+  const wait = Math.max(0, NET.last + NET.gap - Date.now());
+  NET.last = Date.now() + wait;
+  return wait > 0 ? new Promise(r => setTimeout(r, wait)) : Promise.resolve();
+}
+
+/** 429/5xx 指数退避；其余错误重试一次再说 */
+async function withRetry(fn, tries = 3) {
+  let last;
+  for (let i = 0; i < tries; i++) {
+    try {
+      await gate();
+      const r = await fn();
+      NET.fails = 0;
+      if (NET.gap > 320) NET.gap = Math.max(320, Math.round(NET.gap * 0.75));
+      return r;
+    } catch (e) {
+      last = e;
+      NET.fails++;
+      const msg = (e && e.message) || "";
+      if (/429|503|502/.test(msg)) {
+        NET.gap = Math.min(4000, NET.gap * 2);
+        await new Promise(r => setTimeout(r, 900));
+      } else if (i < tries - 1) {
+        await new Promise(r => setTimeout(r, 500 * (i + 1)));
+      } else {
+        throw e;
+      }
+    }
+  }
+  throw last;
+}
+
+/** 启动时探一次路：区分「网络不通」和「被内容安全策略拦了」 */
+async function probeNetwork() {
+  if (NET.checked) return NET.ok;
+  NET.checked = true;
+  try {
+    const r = await timeoutFetch(CF + "?rows=0", 9000);
+    NET.ok = r.ok;
+  } catch (e) {
+    NET.ok = false;
+  }
+  paintNetBanner();
+  return NET.ok;
+}
+
+function paintNetBanner() {
+  const el = $("netBanner");
+  if (!el) return;
+  if (NET.ok) { el.classList.add("hidden"); return; }
+  const online = location.protocol.startsWith("http");
+  el.innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/>' +
+    '<path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>' +
+    '<div class="nb-txt"><b>连不上 CrossRef / OpenAlex，核验会全部失败。</b>' +
+    '这不是文献的问题 —— 当前页面的内容安全策略（CSP）不允许访问外部接口，常见于应用内预览窗口。' +
+    '<span class="nb-hint">' +
+    (online ? '请改用独立浏览器打开部署后的在线地址。' : '请改用独立浏览器（Chrome / Edge）直接打开本文件。') +
+    '</span></div>' +
+    '<button class="btn btn-sm" id="btnReprobe">重新检测</button>';
+  el.classList.remove("hidden");
+  $("btnReprobe").addEventListener("click", async () => {
+    NET.checked = false;
+    $("btnReprobe").textContent = "检测中…";
+    const ok = await probeNetwork();
+    if (!ok) $("btnReprobe").textContent = "仍不通";
+  });
+}
+
+async function crossrefByDoi(doi) {
+  const url = CF + "/" + encodeURIComponent(doi);
+  const r = await timeoutFetch(url);
+  if (r.status === 404) return { status: "notfound" };
+  if (!r.ok) throw new Error("CrossRef " + r.status);
+  const j = await r.json();
+  STATE.sources.crossref++;
+  return { status: "ok", rec: mapCrossref(j.message) };
+}
+
+async function crossrefSearch(q, rows = 6) {
+  const p = new URLSearchParams();
+  p.set("query.bibliographic", q);
+  p.set("rows", String(rows));
+  p.set("select", "DOI,title,author,issued,container-title,volume,issue,page,publisher,type");
+  const r = await timeoutFetch(CF + "?" + p.toString());
+  if (!r.ok) throw new Error("CrossRef " + r.status);
+  const j = await r.json();
+  STATE.sources.crossref++;
+  return (j.message.items || []).map(mapCrossref);
+}
+
+async function openalexSearch(q) {
+  const p = new URLSearchParams();
+  p.set("search", q);
+  p.set("per-page", "6");
+  const r = await timeoutFetch(OA + "?" + p.toString());
+  if (!r.ok) throw new Error("OpenAlex " + r.status);
+  const j = await r.json();
+  STATE.sources.openalex++;
+  return (j.results || []).map(mapOpenAlex);
+}
+
+function mapCrossref(m) {
+  const auth = (m.author || []).map(a => {
+    const name = [a.family, a.given].filter(Boolean).join(", ") || a.name || "";
+    return {
+      family: a.family || a.name || "",
+      given: a.given || "",
+      name: name || a.name || "",
+      cn: /[\u4e00-\u9fa5]/.test(name)
+    };
+  });
+  const year = m.issued?.["date-parts"]?.[0]?.[0] || m.published?.["date-parts"]?.[0]?.[0] || 0;
+  return {
+    doi: normDoi(m.DOI),
+    title: cleanTitle((m.title || [""])[0] || ""),
+    authors: auth,
+    year: year || 0,
+    journal: ((m["container-title"] || [""])[0] || "").replace(/<[^>]*>/g, ""),
+    volume: m.volume || "",
+    issue: m.issue || "",
+    pages: normPages(m.page || ""),
+    type: m.type || "journal-article",
+    publisher: m.publisher || "",
+    source: "crossref"
+  };
+}
+
+function mapOpenAlex(w) {
+  const auth = (w.authorships || []).map(a => {
+    const nm = a.author?.display_name || "";
+    const parts = nm.split(/\s+/);
+    const fam = parts.length > 1 ? parts.pop() : nm;
+    return { family: fam, given: parts.join(" "), name: nm, cn: /[\u4e00-\u9fa5]/.test(nm) };
+  });
+  const b = w.biblio || {};
+  const pages = b.first_page ? (b.last_page && b.last_page !== b.first_page ? b.first_page + "-" + b.last_page : b.first_page) : "";
+  return {
+    doi: normDoi((w.doi || "").replace(/^https?:\/\/doi\.org\//, "")),
+    title: cleanTitle(w.title || w.display_name || ""),
+    authors: auth,
+    year: w.publication_year || 0,
+    journal: w.primary_location?.source?.display_name || "",
+    volume: b.volume || "",
+    issue: b.issue || "",
+    pages: normPages(pages),
+    type: w.type === "article" ? "journal-article" : w.type === "preprint" ? "posted-content" : (w.type || "journal-article"),
+    publisher: w.primary_location?.source?.host_organization_name || "",
+    source: "openalex"
+  };
+}
+
+/* ---------------- 字段比对 ---------------- */
+
+const FIELD_DEFS = [
+  { k: "title",   label: "题名" },
+  { k: "authors", label: "作者" },
+  { k: "year",    label: "年份" },
+  { k: "journal", label: "刊名" },
+  { k: "volume",  label: "卷" },
+  { k: "issue",   label: "期" },
+  { k: "pages",   label: "页码" },
+  { k: "doi",     label: "DOI" }
+];
+
+function fmtAuthors(list, max = 3) {
+  if (!list || !list.length) return "";
+  const names = list.map(a => a.cn ? (a.name || a.family) : (a.family || a.name));
+  if (names.length <= max) return names.join(", ");
+  return names.slice(0, max).join(", ") + " 等 " + names.length + " 人";
+}
+
+/** prefixMode：原文用了 et al. 时只比前 N 位，不因作者数不齐判错 */
+function authorMatch(a, b, prefixMode) {
+  const fam = (x) => (x || []).map(p => norm(p.family || p.name)).filter(Boolean);
+  const A = fam(a), B = fam(b);
+  if (!A.length || !B.length) return 0;
+  const setB = new Set(B);
+  let hit = 0;
+  for (const x of A) if (setB.has(x)) hit++;
+  if (prefixMode) return hit / A.length;
+  return hit / Math.max(A.length, B.length);
+}
+
+/** 旁证：年份 / 刊名 / 卷 / 页码 / 作者，至少几项吻合 */
+function corroboration(item, rec) {
+  let n = 0;
+  if (item.year && rec.year && Number(item.year) === Number(rec.year)) n++;
+  if (item.journal && rec.journal) {
+    const a = norm(item.journal), b = norm(rec.journal);
+    if (a === b || a.includes(b) || b.includes(a)) n++;
+  }
+  if (item.volume && eqVolIss(item.volume, rec.volume)) n++;
+  if (item.pages && eqPages(item.pages, rec.pages)) n++;
+  if (authorMatch(item.authors, rec.authors, true) >= 0.5) n++;
+  return n;
+}
+
+function diffFields(item, rec) {
+  const out = [];
+  // 题名
+  const ts = titleSim(item.title, rec.title);
+  out.push({
+    key: "title", label: "题名", same: ts >= 0.99,
+    old: item.title, new: rec.title, missing: !item.title
+  });
+  // 作者
+  const am = authorMatch(item.authors, rec.authors, /et\s*al|等/i.test(item.raw || ""));
+  out.push({
+    key: "authors", label: "作者", same: am >= 0.999 || (!item.authors.length) ,
+    old: fmtAuthors(item.authors), new: fmtAuthors(rec.authors),
+    missing: !item.authors.length
+  });
+  // 年份
+  out.push({
+    key: "year", label: "年份", same: !item.year || Number(item.year) === Number(rec.year),
+    old: item.year ? String(item.year) : "", new: rec.year ? String(rec.year) : "",
+    missing: !item.year
+  });
+  // 刊名
+  const jn = (x) => norm(x);
+  const jSame = !item.journal || !rec.journal
+    ? true
+    : (jn(item.journal) === jn(rec.journal) || jn(item.journal).includes(jn(rec.journal)) || jn(rec.journal).includes(jn(item.journal)));
+  out.push({
+    key: "journal", label: "刊名", same: jSame,
+    old: item.journal, new: rec.journal, missing: !item.journal
+  });
+  // 卷
+  out.push({
+    key: "volume", label: "卷", same: eqVolIss(item.volume, rec.volume),
+    old: item.volume, new: rec.volume, missing: !item.volume
+  });
+  // 期
+  out.push({
+    key: "issue", label: "期", same: eqVolIss(item.issue, rec.issue),
+    old: item.issue, new: rec.issue, missing: !item.issue
+  });
+  // 页码
+  out.push({
+    key: "pages", label: "页码", same: eqPages(item.pages, rec.pages),
+    old: item.pages, new: rec.pages, missing: !item.pages
+  });
+  // DOI
+  const dSame = normDoi(item.doi) === normDoi(rec.doi);
+  out.push({
+    key: "doi", label: "DOI", same: dSame,
+    old: normDoi(item.doi), new: normDoi(rec.doi), missing: !item.doi
+  });
+  return out;
+}
+
+/* ---------------- 核验主流程 ---------------- */
+
+function scoreCandidate(item, rec) {
+  const ts = titleSim(item.title, rec.title);
+  let bonus = 0;
+  if (item.doi && normDoi(item.doi) === normDoi(rec.doi)) bonus += 0.06;
+  if (item.year && Number(item.year) === Number(rec.year)) bonus += 0.04;
+  if (item.volume && eqVolIss(item.volume, rec.volume)) bonus += 0.03;
+  if (item.pages && eqPages(item.pages, rec.pages)) bonus += 0.03;
+  if (item.journal && rec.journal) {
+    const a = norm(item.journal), b = norm(rec.journal);
+    if (a === b || a.includes(b) || b.includes(a)) bonus += 0.03;
+  }
+  // 年份差得多的候选要压下去，避免选到同名盗用记录
+  if (item.year && rec.year && Math.abs(Number(item.year) - Number(rec.year)) > 2) bonus -= 0.10;
+  return Math.min(1, ts + bonus);
+}
+
+async function verifyOne(item) {
+  const q = [item.title, item.authors[0]?.family, item.year].filter(Boolean).join(" ");
+  let viaDoi = false;
+  let doiDead = false;
+  let candidates = [];
+  let errMsg = "";
+
+  // ① DOI 精确核验
+  if (item.doi) {
+    try {
+      const r = await crossrefByDoi(item.doi);
+      if (r.status === "ok") {
+        viaDoi = true;
+        candidates = [r.rec];
+      } else {
+        doiDead = true;
+      }
+    } catch (e) {
+      errMsg = e.message || "网络异常";
+    }
+  }
+
+  // ② 标题检索（无 DOI 或 DOI 查无此号时）
+  if (!candidates.length && q) {
+    try {
+      candidates = await withRetry(() => crossrefSearch(q));
+    } catch (e) {
+      if (!errMsg) errMsg = e.message || "CrossRef 检索失败";
+    }
+    if (!candidates.length) {
+      try {
+        const oa = await withRetry(() => openalexSearch(q));
+        if (oa.length) candidates = oa;
+      } catch (e) {
+        if (!errMsg) errMsg = e.message || "OpenAlex 检索失败";
+      }
+    }
+  }
+
+  // ②b 候选不可靠（无年份 / 年份差太远）时，拉 OpenAlex 补一轮
+  if (!viaDoi && q && candidates.length) {
+    let top = candidates[0], tv = -1;
+    for (const c of candidates) {
+      const s = scoreCandidate(item, c);
+      if (s > tv) { tv = s; top = c; }
+    }
+    const shaky = !top.year || (item.year && Math.abs(Number(item.year) - Number(top.year)) > 1);
+    if (shaky) {
+      try {
+        const oa = await withRetry(() => openalexSearch(q));
+        if (oa.length) candidates = candidates.concat(oa);
+      } catch (e) { /* 补充检索失败不影响主判定 */ }
+    }
+  }
+
+  // ③ 全部失败 → 待核（绝不当成"未见"）
+  if (!candidates.length) {
+    if (errMsg) {
+      const blocked = NET.ok === false;
+      const note = blocked
+        ? "连不上学术接口（" + errMsg + "）。当前页面的内容安全策略禁止访问外部域名，换独立浏览器或访问在线版即可。这不是文献的问题。"
+        : "接口请求失败：" + errMsg + "，未能完成核验。这不算「未见」，可点重试。";
+      return { item, status: "err", best: null, diffs: [], score: 0, note, blocked };
+    }
+    return {
+      item, status: "miss", best: null, diffs: [], score: 0, doiDead,
+      note: doiDead
+        ? "DOI 在 CrossRef 未注册（404），标题检索亦无匹配。两条独立线索都落空，高度可疑。"
+        : "CrossRef 与 OpenAlex 均无匹配记录。可能是编造条目，也可能是未被收录的文献（中文期刊、会议、内部资料常见）。请点手动检索复核。"
+    };
+  }
+
+  // ④ 选最佳候选
+  let best = candidates[0], bestScore = -1;
+  for (const c of candidates) {
+    const s = scoreCandidate(item, c);
+    if (s > bestScore) { bestScore = s; best = c; }
+  }
+  if (viaDoi) { best = candidates[0]; }
+
+  const diffs = diffFields(item, best);
+  const ts = titleSim(item.title, best.title);
+  const hardBad = diffs.filter(d => !d.same && !d.missing);
+
+  let status, note = "";
+  const yGap = (item.year && best.year) ? Math.abs(Number(item.year) - Number(best.year)) : 0;
+  const corr = corroboration(item, best);
+
+  if (viaDoi && !item.title) {
+    status = "ok";
+    note = "仅凭 DOI 命中注册记录，已取回完整著录信息。";
+  } else if (viaDoi) {
+    if (ts >= 0.99) {
+      status = hardBad.length === 0 ? "ok" : "fix";
+      note = hardBad.length === 0
+        ? "DOI 精确命中，逐字段核对一致。"
+        : "DOI 精确命中，但有 " + hardBad.length + " 个字段与注册记录不符。";
+    } else if (ts >= 0.72) {
+      status = "fix";
+      note = "DOI 能解析，但它指向的文献与你的题名有出入（相似度 " + ts.toFixed(2) + "）。多半是 DOI 抄错、套用了别篇的号。";
+    } else {
+      status = "doubt";
+      note = "DOI 能解析，但指向的是一篇完全不同的文献（相似度 " + ts.toFixed(2) + "）。这个 DOI 与题名对不上，务必人工核对。";
+    }
+  } else if (doiDead && ts >= 0.86) {
+    status = "fix";
+    note = "DOI 在 CrossRef 查无此号，但标题匹配到对应文献（相似度 " + ts.toFixed(2) + "）。DOI 多半被改错或编错了。";
+  } else if (ts >= 0.99 && yGap > 1) {
+    status = "doubt";
+    note = "题名完全一致，但年份相差 " + yGap + " 年（你写 " + item.year + "，记录为 " + best.year + "）。可能匹配到同名记录，也可能原始版本未被收录（早期会议论文常见）—— 请用下方手动检索确认后再采用。";
+  } else if (ts >= 0.99) {
+    if (hardBad.length === 0 && best.doi) {
+      status = "ok";
+      note = "标题精确匹配到注册记录，关键字段一致。";
+    } else if (hardBad.length === 0) {
+      status = "doubt";
+      note = "匹配到记录，但该记录没有 DOI 规范标识，建议人工确认。";
+    } else {
+      status = "fix";
+      note = "标题精确匹配，但 " + hardBad.length + " 个字段有出入。";
+    }
+  } else if (ts >= 0.90 && (corr >= 1 || yGap <= 1)) {
+    status = "fix";
+    note = "高度近似匹配（相似度 " + ts.toFixed(2) + "），题名有个别字词出入，请核对是否同一篇。";
+  } else if (ts >= 0.72 && corr >= 1) {
+    status = "fix";
+    note = "找到较为相似的记录（相似度 " + ts.toFixed(2) + "），且年份、刊名等有吻合，可能同一篇的不同著录版本。";
+  } else if (ts >= 0.50) {
+    if (corr >= 2) {
+      status = "doubt";
+      note = "有相似记录（相似度 " + ts.toFixed(2) + "），年份、刊名等有 " + corr + " 项吻合，但仍不足以认定是同一篇，请人工确认。";
+    } else {
+      status = "miss";
+      note = "检索到的条目题名相近，但年份、刊名、卷期均不吻合（最高相似度 " + ts.toFixed(2) + "），基本可判定为无此文献，或严重错记。";
+    }
+  } else {
+    status = "miss";
+    note = doiDead
+      ? "DOI 未注册，且标题检索无有效匹配。两条线索都落空，高度可疑。"
+      : "检索到若干条目但均与题名不符（最高相似度 " + ts.toFixed(2) + "）。可能是编造条目或未被收录。";
+  }
+
+  return { item, status, best, diffs, score: Math.min(1, ts), viaDoi, doiDead, note };
+}
+
+/* ---------------- 体例格式化 ---------------- */
+
+const STYLES = [
+  { k: "apa",  label: "APA 7" },
+  { k: "gb",   label: "GB/T 7714" },
+  { k: "ieee", label: "IEEE" },
+  { k: "mla",  label: "MLA 9" },
+  { k: "van",  label: "Vancouver" },
+  { k: "chi",  label: "Chicago" }
+];
+
+const isCN = (s) => /[\u4e00-\u9fa5]/.test(s || "");
+const ini = (g) => !g ? "" : g.replace(/[.,]/g, " ").split(/\s+/).filter(Boolean)
+  .map(w => (w[0] || "").toUpperCase() + ".").join(" ");
+
+function apaName(a) {
+  if (a.cn) return a.name || a.family;
+  const f = (a.family || "").trim(), g = (a.given || "").trim();
+  if (!f) return a.name || "";
+  return g ? f + ", " + ini(g) : f;
+}
+function gbName(a) {
+  if (a.cn) return a.name || a.family;
+  const f = (a.family || "").toUpperCase();
+  const ins = (a.given || "").replace(/[.]/g, " ").split(/\s+/).filter(Boolean).map(w => (w[0] || "").toUpperCase()).join("");
+  return (f + (ins ? " " + ins : "")).trim();
+}
+function ieeeName(a) {
+  if (a.cn) return a.name || a.family;
+  const g = (a.given || "").replace(/[.]/g, " ").split(/\s+/).filter(Boolean).map(w => (w[0] || "").toUpperCase() + ".").join(" ");
+  return (g + " " + (a.family || "")).trim();
+}
+function vanName(a) {
+  if (a.cn) return a.name || a.family;
+  const ins = (a.given || "").replace(/[.]/g, " ").split(/\s+/).filter(Boolean).map(w => (w[0] || "").toUpperCase()).join("");
+  return ((a.family || "") + (ins ? " " + ins : "")).trim();
+}
+function chiName(a) {
+  if (a.cn) return a.name || a.family;
+  const f = (a.family || "").trim(), g = (a.given || "").trim();
+  return g ? f + ", " + g : f;
+}
+
+const TYPE_TAG = {
+  "journal-article": "J", "proceedings-article": "C", "book": "M",
+  "book-chapter": "M", "dissertation": "D", "posted-content": "EB/OL",
+  "newspaper-article": "N", "report": "R", "dataset": "DB/OL", "web": "EB/OL"
+};
+
+function joinAuthors(list, style, max = 3) {
+  if (!list || !list.length) return "";
+  const ns = list.slice(0, max).map(a => {
+    switch (style) {
+      case "gb": return gbName(a);
+      case "ieee": return ieeeName(a);
+      case "van": return vanName(a);
+      case "chi": return chiName(a);
+      default: return apaName(a);
+    }
+  });
+  const more = list.length > max;
+  if (style === "ieee") {
+    if (ns.length === 1) return ns[0];
+    return ns.slice(0, -1).join(", ") + ", and " + ns[ns.length - 1] + (more ? ", et al." : "");
+  }
+  if (style === "gb") return ns.join(", ") + (more ? (isCN(ns[0]) ? ", 等" : ", et al") : "");
+  if (style === "van") return ns.join(", ") + (more ? ", et al" : "");
+  if (style === "chi") {
+    if (ns.length === 1) return ns[0];
+    return ns.slice(0, -1).join(", ") + ", and " + ns[ns.length - 1] + (more ? ", et al." : "");
+  }
+  // APA / MLA
+  if (style === "mla" && list.length > 2) return ns[0] + ", et al.";
+  if (ns.length === 1) return ns[0];
+  return ns.slice(0, -1).join(", ") + ", & " + ns[ns.length - 1] + (more ? ", et al." : "");
+}
+
+/** MLA：首位倒装，>2 人用 et al.，第二作者正序 */
+function mlaAuthors(list) {
+  if (!list || !list.length) return "";
+  const first = list[0].cn ? (list[0].name || list[0].family)
+    : (list[0].family ? list[0].family + (list[0].given ? ", " + list[0].given : "") : list[0].name);
+  if (list.length === 1) return first;
+  if (list.length > 2) return first + ", et al.";
+  const s = list[1];
+  const second = s.cn ? (s.name || s.family) : [s.given, s.family].filter(Boolean).join(" ");
+  return first + ", and " + second;
+}
+
+/** Chicago：首位倒装，其余正序，末位用 and */
+function chiAuthors(list) {
+  if (!list || !list.length) return "";
+  const first = list[0].cn ? (list[0].name || list[0].family)
+    : (list[0].family ? list[0].family + (list[0].given ? ", " + list[0].given : "") : list[0].name);
+  if (list.length === 1) return first;
+  const rest = list.slice(1, 8).map(a => a.cn ? (a.name || a.family) : [a.given, a.family].filter(Boolean).join(" "));
+  if (rest.length === 1) return first + ", and " + rest[0];
+  return first + ", " + rest.slice(0, -1).join(", ") + ", and " + rest[rest.length - 1];
+}
+
+function dash(p, en) {
+  if (!p) return "";
+  return String(p).replace(/-/g, en ? "–" : "-");
+}
+
+function formatRecord(r, style) {
+  const A = r.authors || [];
+  const T = r.title || "";
+  const J = r.journal || "";
+  const Y = r.year || "";
+  const V = r.volume || "";
+  const I = r.issue || "";
+  const P = r.pages || "";
+  const D = normDoi(r.doi);
+  const doiUrl = D ? "https://doi.org/" + D : "";
+
+  if (!T && !D) return "";
+
+  if (style === "gb") {
+    const tag = TYPE_TAG[r.type] || "J";
+    let s = joinAuthors(A, "gb") + ". ";
+    s += T + "[" + tag + "]";
+    if (tag === "C" || tag === "M") {
+      // 会议论文 / 专著：题名[C]//会议名. 年: 页
+      if (J) s += "//" + J;
+      s += ".";
+      if (Y) s += " " + Y;
+      if (P) s += ": " + dash(P);
+      s += ".";
+    } else {
+      s += ". ";
+      if (J) s += J + ", ";
+      if (Y) s += Y;
+      if (V) s += ", " + V;
+      if (I) s += "(" + I + ")";
+      if (P) s += ": " + dash(P);
+      s += ".";
+    }
+    if (D) s += " DOI:" + D;
+    return s.replace(/\s+/g, " ").replace(/\.\./g, ".");
+  }
+
+  if (style === "ieee") {
+    let a = joinAuthors(A, "ieee");
+    let s = a ? a + ', "' + T + '," ' : '"' + T + '," ';
+    if (J) s += J;
+    if (V) s += ", vol. " + V;
+    if (I) s += ", no. " + I;
+    if (P) s += ", pp. " + dash(P, true);
+    if (Y) s += ", " + Y;
+    s += ".";
+    if (D) s += " doi: " + D + ".";
+    return s.replace(/\s+/g, " ").replace(/\.\s*\./g, ".");
+  }
+
+  if (style === "mla") {
+    const a = mlaAuthors(A);
+    let s = a ? a + (/(et al\.|\.)$/.test(a) ? " " : ". ") : "";
+    s += '"' + T + '." ';
+    if (J) s += J;
+    if (V) s += ", vol. " + V;
+    if (I) s += ", no. " + I;
+    if (Y) s += ", " + Y;
+    if (P) s += ", pp. " + dash(P, true);
+    s += ".";
+    if (D) s += " https://doi.org/" + D + ".";
+    return s.replace(/\s+/g, " ").replace(/,\s*\./g, ".").replace(/\.\s*\./g, ".");
+  }
+
+  if (style === "van") {
+    let s = joinAuthors(A, "van") + ". ";
+    s += T + ". ";
+    if (J) s += J + ". ";
+    if (Y) s += Y;
+    if (V) s += ";" + V;
+    if (I) s += "(" + I + ")";
+    if (P) s += ":" + dash(P);
+    if (Y || V) s += ".";
+    if (D) s += " doi:" + D + ".";
+    return s.replace(/\s+/g, " ").replace(/\.\s*\./g, ".");
+  }
+
+  if (style === "chi") {
+    const a = chiAuthors(A);
+    let s = a ? a + ". " : "";
+    if (Y) s += Y + ". ";
+    s += '"' + T + '." ';
+    if (J) s += J + " ";
+    if (V) s += V;
+    if (I) s += " (" + I + ")";
+    if (V || I) s += ":";
+    if (P) s += " " + dash(P, true);
+    s += ".";
+    if (doiUrl) s += " " + doiUrl + ".";
+    return s.replace(/\s+/g, " ").replace(/:\s*\./g, ".").replace(/\.\s*\./g, ".");
+  }
+
+  // APA 7
+  let au = joinAuthors(A, "apa");
+  if (au && !/\.$/.test(au)) au += ".";
+  let s = (au ? au + " " : "");
+  if (Y) s += "(" + Y + "). ";
+  s += T + ". ";
+  if (J) s += J;
+  if (V) s += ", " + V;
+  if (I) s += "(" + I + ")";
+  if (P) s += ", " + dash(P, true);
+  if (J) s += ".";
+  if (doiUrl) s += " " + doiUrl;
+  return s.replace(/\s+/g, " ").replace(/\.\s*\./g, ".").trim();
+}
+
+/* ---------------- 状态 ---------------- */
+
+/** 预览与导出优先采用数据源记录 —— 产出的列表必须是可直接引用的正确版本 */
+function effective(rec) {
+  return rec.best || rec.item;
+}
+
+function currentRecords() {
+  return STATE.results
+    .filter(r => ["ok", "fix", "doubt"].includes(r.status))
+    .map(r => effective(r))
+    .filter(r => r && (r.title || r.doi));
+}
+
+/* ---------------- 渲染 ---------------- */
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function renderStats() {
+  const R = STATE.results;
+  const n = (s) => R.filter(r => r.status === s).length;
+  const done = R.length - n("run") - n("err");
+  const pass = n("ok");
+  const rate = done > 0 ? Math.round(pass / done * 100) : 0;
+  const el = $("stats");
+  el.innerHTML =
+    '<div class="stat rate">' +
+      '<div class="stat-n">' + rate + '%</div>' +
+      '<div class="stat-l">宜引通过率</div>' +
+      (done === R.length && R.length ?
+        '<div class="stamp"><div class="s-top">核验毕</div><div class="s-num">' + rate + '%</div><div class="s-bot">宜引</div></div>' : "") +
+    '</div>' +
+    '<div class="stat ok"><div class="stat-n">' + n("ok") + '</div><div class="stat-l">宜引</div></div>' +
+    '<div class="stat fix"><div class="stat-n">' + n("fix") + '</div><div class="stat-l">需修</div></div>' +
+    '<div class="stat doubt"><div class="stat-n">' + n("doubt") + '</div><div class="stat-l">存疑</div></div>' +
+    '<div class="stat miss"><div class="stat-n">' + (n("miss") + n("err")) + '</div><div class="stat-l">未见</div></div>';
+}
+
+function renderFilters() {
+  const R = STATE.results;
+  const defs = [
+    { k: "all", label: "全部" },
+    { k: "ok", label: "宜引" },
+    { k: "fix", label: "需修" },
+    { k: "doubt", label: "存疑" },
+    { k: "miss", label: "未见" },
+    { k: "err", label: "待核" }
+  ];
+  const cnt = (k) => k === "all" ? R.length : R.filter(r => r.status === k).length;
+  let h = defs.filter(d => d.k === "all" || cnt(d.k) > 0)
+    .map(d => '<button class="chip' + (STATE.filter === d.k ? " on" : "") + '" data-f="' + d.k + '">' +
+      d.label + '<span class="c">' + cnt(d.k) + "</span></button>").join("");
+  const canApply = R.filter(r => r.status === "fix").length;
+  if (canApply > 1) h += '<button class="btn btn-sm" id="btnApplyAll" style="margin-left:auto">全部采用最佳匹配（' + canApply + '）</button>';
+  $("filters").innerHTML = h;
+}
+
+function cardHTML(res, idx) {
+  const it = res.item;
+  const st = STATUS[res.status] || STATUS.err;
+  const f = STATE.filter;
+  if (f !== "all" && res.status !== f) return "";
+
+  let body = "";
+
+  if (res.status === "run") {
+    body = '<div class="evidence"><span class="ev">正在向 CrossRef 与 OpenAlex 查询…</span></div>';
+    return '<div class="card" data-idx="' + idx + '">' +
+      '<div class="card-head"><span class="card-idx">' + String(idx + 1).padStart(2, "0") + '</span>' +
+      '<div class="card-main"><div class="card-raw">' + esc(it.raw) + '</div></div>' +
+      '<span class="badge load"><i class="spin"></i>核验中</span></div>' +
+      '<div class="card-body">' + body + '</div></div>';
+  }
+
+  if (res.status === "err") {
+    return '<div class="card s-miss" data-idx="' + idx + '">' +
+      '<div class="card-head"><span class="card-idx">' + String(idx + 1).padStart(2, "0") + '</span>' +
+      '<div class="card-main"><div class="card-raw">' + esc(it.raw) + '</div></div>' +
+      '<span class="badge load">待核</span></div>' +
+      '<div class="card-body"><div class="note warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><span>' + esc(res.note) + '</span></div></div>' +
+      '<div class="card-foot"><button class="btn btn-sm" data-act="retry" data-idx="' + idx + '">重试这一条</button></div></div>';
+  }
+
+  // 证据行
+  const ev = [];
+  if (res.viaDoi) ev.push('<span class="ev">匹配依据 <b>DOI 精确命中</b></span>');
+  else if (res.best) ev.push('<span class="ev">匹配依据 <b>标题检索 · 相似度 ' + (res.score || 0).toFixed(2) + '</b></span>');
+  if (res.best && res.best.source) ev.push('<span class="ev">来源 <b>' + (res.best.source === "openalex" ? "OpenAlex" : "CrossRef") + '</b></span>');
+  if (res.doiDead) ev.push('<span class="ev">原 DOI <b>未注册</b></span>');
+
+  // diff —— 未见条目不比字段（差异全无意义，反而误导）
+  let diff = "";
+  if (res.best && res.status !== "miss" && res.diffs && res.diffs.length) {
+    const rows = res.diffs.map(d => {
+      if (d.same && !d.old) return "";
+      if (d.same && d.old) {
+        return '<div class="diff-row"><div class="diff-k">' + d.label + '</div>' +
+          '<div class="diff-v"><div class="d-line d-same"><span class="d-sig">=</span><span class="d-txt">' + (esc(d.old) || '<i style="color:var(--ink-4)">—</i>') + "</span></div></div></div>";
+      }
+      if (d.missing) {
+        return '<div class="diff-row"><div class="diff-k">' + d.label + '</div>' +
+          '<div class="diff-v"><div class="d-line d-same"><span class="d-sig">·</span>' +
+          '<span class="d-txt">原文未填，数据源为 <span style="color:var(--ok)">' + esc(d.new || "—") + "</span></span></div></div></div>";
+      }
+      return '<div class="diff-row hot"><div class="diff-k">' + d.label + '</div><div class="diff-v">' +
+        '<div class="d-line d-old"><span class="d-sig">−</span><span class="d-txt">' + esc(d.old || "—") + "</span></div>" +
+        '<div class="d-line d-new"><span class="d-sig">+</span><span class="d-txt">' + (esc(d.new) || "—") + "</span></div>" +
+        "</div></div>";
+    }).join("");
+
+    if (rows.trim()) {
+      const hot = res.diffs.filter(d => !d.same).length;
+      diff = '<div class="diff"><div class="diff-hd"><span>字段级比对 · 与数据源注册记录</span><span>' +
+        (hot ? hot + " 处差异" : "全部一致") + "</span></div>" + rows + "</div>";
+    }
+  }
+
+  // 提示语
+  let note = "";
+  if (res.note) {
+    const cls = res.status === "ok" ? "good" : res.status === "miss" ? "bad" : "warn";
+    note = '<div class="note ' + cls + '">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+      (res.status === "ok" ? '<path d="M20 6L9 17l-5-5"/>' : '<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/>') +
+      "</svg><span>" + esc(res.note) + "</span></div>";
+  }
+
+  // 页脚操作：只有「需修」才给采用按钮 —— 存疑/未见不许一键替换
+  const doiOut = res.best?.doi || it.doi;
+  let foot = "";
+  if (res.best && res.status === "fix") {
+    foot += '<button class="btn btn-sm btn-seal" data-act="apply" data-idx="' + idx + '">采用并替换</button>';
+  }
+  if (res.status === "ok" && it.applied) {
+    foot += '<span class="linkout" style="color:var(--ok)">已采用数据源记录</span>';
+  }
+  foot += '<span class="sp"></span>';
+  if (doiOut) foot += '<a class="linkout" href="https://doi.org/' + esc(doiOut) + '" target="_blank" rel="noopener">DOI 原文' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6M10 14L21 3"/></svg></a>';
+  const q = encodeURIComponent(it.title || it.raw);
+  foot += '<a class="linkout" href="https://scholar.google.com/scholar?q=' + q + '" target="_blank" rel="noopener">Google Scholar</a>';
+  foot += '<a class="linkout" href="https://xueshu.baidu.com/s?wd=' + q + '" target="_blank" rel="noopener">百度学术</a>';
+  foot += '<a class="linkout" href="https://kns.cnki.net/kns8s/defaultresult/index?kw=' + q + '" target="_blank" rel="noopener">知网</a>';
+
+  return '<div class="card s-' + st.cls + '" data-idx="' + idx + '">' +
+    '<div class="card-head"><span class="card-idx">' + String(idx + 1).padStart(2, "0") + "</span>" +
+    '<div class="card-main"><div class="card-raw">' + esc(it.raw) + "</div></div>" +
+    '<span class="badge ' + st.cls + '">' + st.label + "</span></div>" +
+    '<div class="card-body">' +
+      (ev.length ? '<div class="evidence">' + ev.join("") + "</div>" : "") +
+      note + diff +
+    "</div>" +
+    '<div class="card-foot">' + foot + "</div>" +
+    "</div>";
+}
+
+function renderList() {
+  const h = STATE.results.map((r, i) => cardHTML(r, i)).join("");
+  $("list").innerHTML = h || '<div class="empty fade-in"><div class="empty-t">当前筛选下没有条目</div><div class="empty-s">换个筛选条件看看</div></div>';
+}
+
+function updateCard(idx) {
+  const el = document.querySelector('.card[data-idx="' + idx + '"]');
+  if (!el) { renderList(); return; }
+  const tmp = document.createElement("div");
+  tmp.innerHTML = cardHTML(STATE.results[idx], idx);
+  if (tmp.firstChild) el.replaceWith(tmp.firstChild);
+  else { renderList(); }
+}
+
+function renderPreview() {
+  const recs = STATE.results.filter(r => ["ok", "fix", "doubt"].includes(r.status)).map(r => effective(r));
+  const box = $("preview");
+  if (!recs.length) {
+    box.innerHTML = '<span class="ph">核验完成后，这里按所选体例排出规范文献列表。</span>';
+    $("metaLine").innerHTML = "";
+    return;
+  }
+  box.innerHTML = recs.map((r, i) => {
+    const s = formatRecord(r, STATE.style);
+    if (!s) return "";
+    return '<p><span class="pidx">[' + (i + 1) + "]</span>" + esc(s) + "</p>";
+  }).join("");
+
+  const fixed = STATE.results.filter(r => r.best && ["ok", "fix", "doubt"].includes(r.status)).length;
+  $("metaLine").innerHTML =
+    "<span>共 " + recs.length + " 条已进入列表</span>" +
+    (fixed ? "<span>" + fixed + " 条已按数据源记录排版</span>" : "") +
+    "<span>数据源请求：CrossRef " + STATE.sources.crossref + " 次 · OpenAlex " + STATE.sources.openalex + " 次</span>";
+}
+
+/* ---------------- 交互 ---------------- */
+
+function setRunning(on) {
+  STATE.running = on;
+  $("btnRun").disabled = on || STATE.items.length === 0;
+  $("btnRun").textContent = on ? "核验中…" : "开始核验";
+}
+
+async function runVerify() {
+  if (STATE.running) return;
+  const text = $("src").value.trim();
+  if (!text) return;
+
+  let items;
+  if (/^\s*@[a-zA-Z]+\s*[{(]/.test(text)) items = parseBib(text);
+  else if (/^TY\s*-/m.test(text)) items = parseRis(text);
+  else items = splitEntries(text).map(parseEntry);
+
+  if (!items.length) {
+    $("tally").textContent = "没解析出条目，检查一下格式";
+    return;
+  }
+
+  STATE.items = items;
+  STATE.results = items.map(it => ({ item: it, status: "run", best: null, diffs: [], score: 0, note: "" }));
+  STATE.filter = "all";
+  STATE.sources = { crossref: 0, openalex: 0, failed: 0 };
+
+  $("panelEmpty").classList.add("hidden");
+  $("panelResult").classList.remove("hidden");
+  $("panelFormat").classList.remove("hidden");
+  $("panelProg").classList.remove("hidden");
+
+  renderStats(); renderFilters(); renderList(); renderPreview();
+  setRunning(true);
+  await probeNetwork();
+
+  let consecFails = 0, aborted = false;
+
+  for (let i = 0; i < items.length; i++) {
+    $("progLbl").textContent = "正在核验第 " + (i + 1) + " 条：" + (items[i].title || items[i].raw).slice(0, 42) + "…";
+    $("progNum").textContent = i + " / " + items.length;
+    $("progBar").style.width = (i / items.length * 100) + "%";
+
+    let res;
+    try {
+      res = await verifyOne(items[i]);
+    } catch (e) {
+      res = { item: items[i], status: "err", best: null, diffs: [], score: 0, note: "核验过程异常：" + (e.message || e) };
+    }
+    STATE.results[i] = res;
+    updateCard(i);
+    renderStats(); renderFilters(); renderPreview();
+
+    if (res.status === "err") consecFails++; else consecFails = 0;
+
+    // 连续三条都连不上 → 是环境问题，别让用户干等 38 次超时
+    if (consecFails >= 3 && NET.ok === false) {
+      aborted = true;
+      for (let j = i + 1; j < items.length; j++) {
+        STATE.results[j] = {
+          item: items[j], status: "err", best: null, diffs: [], score: 0,
+          note: "已中止：连续多条都无法连接学术接口，剩余条目未核验。请换独立浏览器或访问在线版后重试。"
+        };
+      }
+      break;
+    }
+  }
+
+  $("progBar").style.width = "100%";
+  $("progNum").textContent = items.length + " / " + items.length;
+  $("progLbl").textContent = aborted ? "已中止：网络被阻断" : "核验完成";
+  setTimeout(() => $("panelProg").classList.add("hidden"), 800);
+
+  renderStats(); renderFilters(); renderList(); renderPreview();
+  $("resultHint").textContent = aborted
+    ? "环境阻断，未完成核验"
+    : "共 " + items.length + " 条 · " + new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) + " 完成";
+  setRunning(false);
+}
+
+function applyFix(idx) {
+  const r = STATE.results[idx];
+  if (!r || !r.best) return;
+  const b = r.best, it = r.item;
+  it.title = b.title || it.title;
+  it.authors = (b.authors && b.authors.length) ? b.authors : it.authors;
+  it.year = b.year || it.year;
+  it.journal = b.journal || it.journal;
+  it.volume = b.volume || it.volume;
+  it.issue = b.issue || it.issue;
+  it.pages = b.pages || it.pages;
+  it.doi = b.doi || it.doi;
+  it.type = b.type || it.type;
+  it.applied = true;
+  it.best = b;
+  r.diffs = diffFields(it, b);
+  r.status = "ok";
+  r.score = 1;
+  r.note = "已采用数据源记录，全部字段按其注册值替换。";
+  updateCard(idx);
+  renderStats(); renderFilters(); renderPreview();
+}
+
+async function retryOne(idx) {
+  const r = STATE.results[idx];
+  if (!r || STATE.running) return;
+  STATE.results[idx] = { item: r.item, status: "run", best: null, diffs: [], score: 0, note: "" };
+  updateCard(idx);
+  const res = await verifyOne(r.item);
+  STATE.results[idx] = res;
+  updateCard(idx);
+  renderStats(); renderFilters(); renderPreview();
+}
+
+/* ---------------- 导出 ---------------- */
+
+function ts() {
+  const d = new Date(), p = (n) => String(n).padStart(2, "0");
+  return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate());
+}
+
+function download(name, content, mime) {
+  const blob = new Blob([content], { type: (mime || "text/plain") + ";charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 500);
+}
+
+function buildListText() {
+  return currentRecords().map((r, i) => "[" + (i + 1) + "] " + formatRecord(r, STATE.style)).filter(Boolean).join("\n");
+}
+
+function buildReport() {
+  const R = STATE.results;
+  const n = (s) => R.filter(r => r.status === s).length;
+  const done = R.length - n("run") - n("err");
+  const rate = done ? Math.round(n("ok") / done * 100) : 0;
+  const L = [];
+  L.push("# 征引考 · 参考文献核验报告");
+  L.push("");
+  L.push("- 生成时间：" + new Date().toLocaleString("zh-CN"));
+  L.push("- 共核验：**" + R.length + "** 条");
+  L.push("- 宜引 **" + n("ok") + "** / 需修 **" + n("fix") + "** / 存疑 **" + n("doubt") + "** / 未见 **" + (n("miss") + n("err")) + "**");
+  L.push("- 宜引通过率：**" + rate + "%**");
+  L.push("- 数据源：CrossRef REST API、OpenAlex API（公开学术元数据）");
+  L.push("");
+  L.push("---");
+  L.push("");
+
+  R.forEach((r, i) => {
+    const st = STATUS[r.status] || STATUS.err;
+    L.push("## [" + (i + 1) + "] " + st.label);
+    L.push("");
+    L.push("**原条目**");
+    L.push("");
+    L.push("> " + (r.item.raw || "").replace(/\n/g, " "));
+    L.push("");
+    if (r.note) { L.push("**判定说明**：" + r.note); L.push(""); }
+    if (r.best) {
+      if (r.diffs && r.diffs.length) {
+        const bad = r.diffs.filter(d => !d.same && !d.missing);
+        if (bad.length) {
+          L.push("**字段差异**");
+          L.push("");
+          L.push("| 字段 | 原文 | 数据源记录 |");
+          L.push("| --- | --- | --- |");
+          for (const d of bad) {
+            L.push("| " + d.label + " | " + (d.old || "（缺）").replace(/\|/g, "\\|") + " | " + (d.new || "—").replace(/\|/g, "\\|") + " |");
+          }
+          L.push("");
+        }
+      }
+      L.push("**规范条目（" + (STYLES.find(s => s.k === STATE.style)?.label || "APA 7") + "）**");
+      L.push("");
+      L.push("```");
+      L.push(formatRecord(effective(r), STATE.style));
+      L.push("```");
+      L.push("");
+      if (r.best.doi) L.push("**来源**：https://doi.org/" + r.best.doi);
+    }
+    L.push("");
+    L.push("---");
+    L.push("");
+  });
+
+  L.push("## 说明");
+  L.push("");
+  L.push("「未见」不等于造假。未被 CrossRef / OpenAlex 收录的中文期刊、会议论文、内部印行资料、网络文献都可能查无记录，请结合手动检索结果判断。");
+  L.push("");
+  L.push("本报告由征引考生成，字段内容均取自数据源原始返回，未做生成式改写。");
+  return L.join("\n");
+}
+
+function buildBib() {
+  const recs = currentRecords();
+  return recs.map((r, i) => {
+    const key = (r.authors?.[0]?.family || "ref").replace(/[^a-zA-Z]/g, "") + (r.year || "") + "_" + (i + 1);
+    const L = ["@article{" + key + ","];
+    if (r.authors?.length) L.push("  author  = {" + r.authors.map(a =>
+      a.cn ? a.name : [a.family, (a.given || "").replace(/\./g, "").trim()].filter(Boolean).join(", ")
+    ).join(" and ") + "},");
+    if (r.title) L.push("  title   = {" + r.title + "},");
+    if (r.journal) L.push("  journal = {" + r.journal + "},");
+    if (r.year) L.push("  year    = {" + r.year + "},");
+    if (r.volume) L.push("  volume  = {" + r.volume + "},");
+    if (r.issue) L.push("  number  = {" + r.issue + "},");
+    if (r.pages) L.push("  pages   = {" + r.pages.replace(/-/g, "--") + "},");
+    if (r.doi) L.push("  doi     = {" + r.doi + "},");
+    L.push("}");
+    return L.join("\n");
+  }).join("\n\n");
+}
+
+function buildRis() {
+  return currentRecords().map(r => {
+    const L = ["TY  - JOUR"];
+    (r.authors || []).forEach(a => L.push("AU  - " + (a.cn ? a.name
+      : [a.family, (a.given || "").replace(/\./g, "").trim()].filter(Boolean).join(", "))));
+    if (r.title) L.push("TI  - " + r.title);
+    if (r.journal) L.push("JO  - " + r.journal);
+    if (r.year) L.push("PY  - " + r.year);
+    if (r.volume) L.push("VL  - " + r.volume);
+    if (r.issue) L.push("IS  - " + r.issue);
+    if (r.pages) {
+      const [sp, ep] = String(r.pages).split("-");
+      L.push("SP  - " + sp);
+      if (ep) L.push("EP  - " + ep);
+    }
+    if (r.doi) L.push("DO  - " + r.doi);
+    L.push("ER  - ");
+    return L.join("\n");
+  }).join("\n\n");
+}
+
+/* ---------------- 事件绑定 ---------------- */
+
+function updateTally() {
+  const t = $("src").value.trim();
+  let n = 0;
+  if (t) {
+    if (/^\s*@[a-zA-Z]+\s*[{(]/.test(t)) n = parseBib(t).length;
+    else if (/^TY\s*-/m.test(t)) n = parseRis(t).length;
+    else n = splitEntries(t).length;
+  }
+  $("tally").innerHTML = n ? "已识别 <b>" + n + "</b> 条" : "等待输入";
+  $("btnRun").disabled = n === 0 || STATE.running;
+}
+
+const DEMO = [
+  "LeCun Y, Bengio Y, Hinton G. Deep learning[J]. Nature, 2015, 521(7553): 436-444. DOI:10.1038/nature14539",
+  "Watts D J, Strogatz S H. Collective dynamics of 'small-world' networks[J]. Nature, 1998, 393(6684): 440-442. DOI:10.1038/30918x",
+  "王磊, 陈静. 深度学习在药物靶点预测中的应用[J]. 中国生物医学工程学报, 2021, 40(3): 288-296.",
+  "Zhang L, Wei M. Quantum-enhanced retrieval for large language model citation graphs[J]. Nature Machine Intelligence, 2023, 5(9): 1024-1036. DOI:10.1038/s42256-023-00891-2",
+  "Vaswani A, Shazeer N, Parmar N, et al. Attention is all you need[C]//Advances in Neural Information Processing Systems. 2017: 5998-6008."
+].map((s, i) => "[" + (i + 1) + "] " + s).join("\n");
+
+$("src").addEventListener("input", updateTally);
+
+$("btnDemo").addEventListener("click", () => {
+  $("src").value = DEMO;
+  updateTally();
+});
+
+$("btnClear").addEventListener("click", () => {
+  $("src").value = "";
+  updateTally();
+  $("panelResult").classList.add("hidden");
+  $("panelFormat").classList.add("hidden");
+  $("panelEmpty").classList.remove("hidden");
+  STATE.results = [];
+});
+
+$("btnRun").addEventListener("click", runVerify);
+
+$("fileIn").addEventListener("change", (e) => {
+  const f = e.target.files?.[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    $("src").value = String(rd.result || "");
+    updateTally();
+  };
+  rd.readAsText(f, "utf-8");
+  e.target.value = "";
+});
+
+$("filters").addEventListener("click", (e) => {
+  const chip = e.target.closest("[data-f]");
+  if (chip) {
+    STATE.filter = chip.dataset.f;
+    renderFilters(); renderList();
+    return;
+  }
+  if (e.target.id === "btnApplyAll") {
+    STATE.results.forEach((r, i) => { if (r.status === "fix") applyFix(i); });
+    renderList();
+  }
+});
+
+$("list").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-act]");
+  if (!b) return;
+  const idx = parseInt(b.dataset.idx, 10);
+  if (b.dataset.act === "apply") applyFix(idx);
+  if (b.dataset.act === "retry") retryOne(idx);
+});
+
+$("tabs").addEventListener("click", (e) => {
+  const t = e.target.closest("[data-s]");
+  if (!t) return;
+  STATE.style = t.dataset.s;
+  renderTabs(); renderPreview();
+});
+
+function renderTabs() {
+  $("tabs").innerHTML = STYLES.map(s =>
+    '<button class="tab' + (STATE.style === s.k ? " on" : "") + '" data-s="' + s.k + '">' + s.label + "</button>"
+  ).join("");
+}
+
+$("btnCopy").addEventListener("click", async () => {
+  const txt = buildListText();
+  if (!txt) return;
+  try {
+    await navigator.clipboard.writeText(txt);
+    const b = $("btnCopy");
+    const old = b.innerHTML;
+    b.innerHTML = "已复制";
+    setTimeout(() => b.innerHTML = old, 1400);
+  } catch {
+    download("征引考_文献列表_" + ts() + ".txt", txt);
+  }
+});
+
+$("btnMd").addEventListener("click", () => download("征引考_核验报告_" + ts() + ".md", buildReport(), "text/markdown"));
+$("btnTxt").addEventListener("click", () => download("征引考_文献列表_" + ts() + ".txt", buildListText()));
+$("btnBib").addEventListener("click", () => download("征引考_文献_" + ts() + ".bib", buildBib()));
+$("btnRis").addEventListener("click", () => download("征引考_文献_" + ts() + ".ris", buildRis()));
+
+/* 启动 */
+renderTabs();
+renderPreview();
+updateTally();
+probeNetwork();
+</script>
+</body>
+</html>
