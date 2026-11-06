@@ -943,12 +943,14 @@ function parseEntry(raw) {
   const title = extractTitle(raw, doi);
   const authors = extractAuthors(raw, title);
   const vip = extractVolIssPages(raw);
+  // 年份必须在剥掉题名之后再找 —— 题名里的 "from 2014 to 2023" 会冒充出版年
+  const noTitle = title ? raw.replace(title, " ") : raw;
   return {
     raw: raw.trim(),
     doi,
     title,
     authors,
-    year: extractYear(raw),
+    year: extractYear(noTitle),
     journal: extractJournal(raw, title, doi),
     volume: vip.volume,
     issue: vip.issue,
@@ -1267,6 +1269,20 @@ function corroboration(item, rec) {
   return n;
 }
 
+/** 刊名比对：容忍全称/缩写（Front Med ≈ Frontiers in Medicine） */
+function journalMatch(a, b) {
+  if (!a || !b) return true;
+  const A = norm(a), B = norm(b);
+  if (!A || !B) return true;
+  if (A === B || A.includes(B) || B.includes(A)) return true;
+  const ta = A.split(" ").filter(Boolean), tb = B.split(" ").filter(Boolean);
+  if (!ta.length || !tb.length) return true;
+  const near = (x, y) => x === y || y.startsWith(x) || x.startsWith(y);
+  const hitA = ta.filter(x => tb.some(y => near(x, y))).length / ta.length;
+  const hitB = tb.filter(x => ta.some(y => near(x, y))).length / tb.length;
+  return hitA >= 0.6 && hitB >= 0.6;
+}
+
 function diffFields(item, rec) {
   const out = [];
   // 题名
@@ -1282,34 +1298,32 @@ function diffFields(item, rec) {
     old: fmtAuthors(item.authors), new: fmtAuthors(rec.authors),
     missing: !item.authors.length
   });
-  // 年份
+  // 年份：在线优先与印刷版常差一年，±1 视为一致
+  const ySame = !item.year || !rec.year || Math.abs(Number(item.year) - Number(rec.year)) <= 1;
   out.push({
-    key: "year", label: "年份", same: !item.year || Number(item.year) === Number(rec.year),
+    key: "year", label: "年份", same: ySame,
     old: item.year ? String(item.year) : "", new: rec.year ? String(rec.year) : "",
     missing: !item.year
   });
   // 刊名
-  const jn = (x) => norm(x);
-  const jSame = !item.journal || !rec.journal
-    ? true
-    : (jn(item.journal) === jn(rec.journal) || jn(item.journal).includes(jn(rec.journal)) || jn(rec.journal).includes(jn(item.journal)));
+  const jSame = journalMatch(item.journal, rec.journal);
   out.push({
     key: "journal", label: "刊名", same: jSame,
     old: item.journal, new: rec.journal, missing: !item.journal
   });
   // 卷
   out.push({
-    key: "volume", label: "卷", same: eqVolIss(item.volume, rec.volume),
+    key: "volume", label: "卷", same: !rec.volume || eqVolIss(item.volume, rec.volume),
     old: item.volume, new: rec.volume, missing: !item.volume
   });
   // 期
   out.push({
-    key: "issue", label: "期", same: eqVolIss(item.issue, rec.issue),
+    key: "issue", label: "期", same: !rec.issue || eqVolIss(item.issue, rec.issue),
     old: item.issue, new: rec.issue, missing: !item.issue
   });
-  // 页码
+  // 页码：数据源只给文章号时无从核对，不算错
   out.push({
-    key: "pages", label: "页码", same: eqPages(item.pages, rec.pages),
+    key: "pages", label: "页码", same: !rec.pages || eqPages(item.pages, rec.pages),
     old: item.pages, new: rec.pages, missing: !item.pages
   });
   // DOI
@@ -1421,7 +1435,9 @@ async function verifyOne(item) {
 
   const diffs = diffFields(item, best);
   const ts = titleSim(item.title, best.title);
-  const hardBad = diffs.filter(d => !d.same && !d.missing);
+  // 只有这些字段对不上才算"需修"；刊名缩写、作者 et al. 之类不改变文献真实性
+  const HARD_KEYS = new Set(["title", "year", "volume", "issue", "pages", "doi"]);
+  const hardBad = diffs.filter(d => !d.same && !d.missing && HARD_KEYS.has(d.key));
 
   let status, note = "";
   const yGap = (item.year && best.year) ? Math.abs(Number(item.year) - Number(best.year)) : 0;
