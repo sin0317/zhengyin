@@ -2252,6 +2252,13 @@ renderTabs();
 renderPreview();
 updateTally();
 probeNetwork();
+
+/* ?demo=1 直接跑一遍示例，方便分享时演示 */
+if (new URLSearchParams(location.search).get("demo") === "1") {
+  $("src").value = DEMO;
+  updateTally();
+  setTimeout(() => { if (!$("btnRun").disabled) runVerify(); }, 400);
+}
 </script>
 </body>
 </html>
