@@ -406,6 +406,16 @@ footer a:hover{color:var(--cinnabar);border-color:var(--cinnabar)}
 .netbar .nb-txt b{display:block;margin-bottom:3px;color:#5a3d08;font-size:13.5px}
 .netbar .nb-hint{display:block;margin-top:5px;padding-top:5px;border-top:1px dashed rgba(150,96,15,.3);color:#8a6a2a;font-size:12.5px}
 .netbar .btn{flex:0 0 auto;background:#fff;border-color:var(--fix-bd);color:#6b4a10}
+.bridge-badge{display:flex;align-items:center;gap:8px;margin-top:14px;padding:8px 13px;border-radius:8px;font-size:12.5px;line-height:1.5}
+.bridge-badge.on{background:#eef6f0;border:1px solid #c3ddc9;color:#2f6b3f}
+.bridge-badge.off{background:var(--paper-2);border:1px solid var(--rule-2);color:var(--ink-3)}
+.bridge-badge .bb-dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto}
+.bridge-badge.on .bb-dot{background:#3f8f57;box-shadow:0 0 0 3px rgba(63,143,87,.15)}
+.bridge-badge.off .bb-dot{background:#b9b2a3}
+.bridge-badge .bb-btn{margin-left:auto;background:#fff;border:1px solid var(--rule-2);color:var(--ink-2);font-size:12px;padding:2px 9px;border-radius:5px;cursor:pointer;font-family:inherit}
+.bridge-badge .bb-btn:hover{border-color:var(--ink-4);color:var(--ink)}
+.bridge-badge .bb-x{margin-left:auto;cursor:pointer;color:var(--ink-4);font-size:15px;line-height:1;padding:0 3px}
+.bridge-badge .bb-btn + .bb-x{margin-left:8px}
 </style>
 </head>
 <body>
@@ -430,6 +440,7 @@ footer a:hover{color:var(--cinnabar);border-color:var(--cinnabar)}
 <main class="wrap">
 
   <div id="netBanner" class="netbar hidden"></div>
+  <div id="bridgeBadge" class="bridge-badge hidden"></div>
 
   <section class="hero">
     <div class="eyebrow">AI 时代的参考文献核验</div>
@@ -1149,6 +1160,139 @@ function paintNetBanner() {
   });
 }
 
+/* ---------------- 本地中文库服务（可选增强） ----------------
+   在本机跑 crawler/server.js 后，中文文献可交给万方核验；
+   没跑服务就自动退回「库外 + 知网人工复核」。 */
+const BRIDGE = {
+  base: (typeof localStorage !== "undefined" && localStorage.getItem("zy_bridge")) || "http://127.0.0.1:7027",
+  ok: false,
+  checked: false,
+  info: null,
+  probing: false,
+};
+
+async function probeBridge() {
+  if (BRIDGE.checked) return BRIDGE.ok;
+  if (BRIDGE.probing) return BRIDGE.ok;
+  BRIDGE.probing = true;
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 2500);
+    const r = await fetch(BRIDGE.base + "/api/health", { signal: ctl.signal });
+    clearTimeout(t);
+    if (r.ok) {
+      const j = await r.json();
+      BRIDGE.ok = Boolean(j && j.ok);
+      BRIDGE.info = j;
+    }
+  } catch (e) {
+    BRIDGE.ok = false;
+  }
+  BRIDGE.probing = false;
+  BRIDGE.checked = true;
+  paintBridgeBadge();
+  return BRIDGE.ok;
+}
+
+function paintBridgeBadge() {
+  const el = $("bridgeBadge");
+  if (!el) return;
+  if (BRIDGE.ok) {
+    el.className = "bridge-badge on";
+    el.innerHTML =
+      '<span class="bb-dot"></span><span>中文库已接入 · 万方</span>' +
+      '<span class="bb-x" id="bbHide" title="隐藏">×</span>';
+    el.classList.remove("hidden");
+    const h = $("bbHide");
+    if (h) h.addEventListener("click", () => el.classList.add("hidden"));
+  } else {
+    el.className = "bridge-badge off";
+    el.innerHTML =
+      '<span class="bb-dot"></span><span>中文库未接入，中文文献只能标记「库外」</span>' +
+      '<button class="bb-btn" id="bbHow">怎么接入</button>' +
+      '<span class="bb-x" id="bbHide" title="隐藏">×</span>';
+    el.classList.remove("hidden");
+    const h = $("bbHide");
+    if (h) h.addEventListener("click", () => el.classList.add("hidden"));
+    const b = $("bbHow");
+    if (b) b.addEventListener("click", () => {
+      alert(
+        "在本机开一个终端，进入 crawler 目录后运行：\\n\\n" +
+        "  npm install\\n  npm start\\n\\n" +
+        "首次运行会自动打开一个浏览器窗口。若万方弹出滑块，请手动拖一次，之后可长期复用。\\n\\n" +
+        "服务跑起来后刷新本页，中文文献就会交给万方核验。"
+      );
+    });
+  }
+}
+
+/** 调本地服务核验单条（原始返回） */
+async function bridgeVerify(item) {
+  const payload = {
+    items: [{
+      title: item.title || "",
+      authors: (item.authors || []).map(a => ({ family: a.family || a.name || "", given: a.given || "" })),
+      year: item.year || "",
+      journal: item.journal || "",
+      volume: item.volume || "",
+      issue: item.issue || "",
+      pages: item.pages || "",
+      doi: item.doi || "",
+    }],
+  };
+  const r = await fetch(BRIDGE.base + "/api/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) throw new Error("中文库服务返回 " + r.status);
+  const j = await r.json();
+  return (j.results && j.results[0]) || null;
+}
+
+/** 命中万方则返回可直接用的结果对象；未命中/异常返回 null（回退英文库流程） */
+async function tryBridge(item) {
+  if (!BRIDGE.ok) return null;
+  let br = null;
+  try {
+    br = await bridgeVerify(item);
+  } catch (e) {
+    console.warn("[bridge] 核验请求失败：", e && e.message);
+    return null;
+  }
+  if (!br) { console.warn("[bridge] 服务返回空结果"); return null; }
+  if (!br.match || br.status === "notfound") return null;
+  const rec = {
+    title: br.match.title || "",
+    authors: (br.match.authors || []).map(n => ({ family: n, given: "", name: n })),
+    year: br.match.year || "",
+    journal: br.match.journal || "",
+    volume: br.match.volume || "",
+    issue: br.match.issue || "",
+    pages: br.match.pages || "",
+    doi: br.match.doi || "",
+    type: "journal-article",
+    source: "wanfang",
+    wfId: br.match.wfId || "",
+  };
+  const statusMap = { verified: "ok", fix: "fix", likely: "doubt", doubt: "doubt" };
+  const diffs = (br.diffs || []).map(d => ({
+    key: d.key, label: d.label, same: d.same,
+    old: d.old, new: d.new, missing: !d.old,
+  }));
+  return {
+    status: statusMap[br.status] || "doubt",
+    best: rec,
+    diffs,
+    score: br.score || 0,
+    note: br.note + (br.degraded ? "（原始题名未命中，已用「" + br.usedQuery + "」检索到）" : ""),
+    viaBridge: true,
+    bridgeQuery: br.usedQuery,
+    bridgeDegraded: Boolean(br.degraded),
+    doiDead: false,
+  };
+}
+
 async function crossrefByDoi(doi) {
   const url = CF + "/" + encodeURIComponent(doi);
   const r = await timeoutFetch(url);
@@ -1363,6 +1507,14 @@ function scoreCandidate(item, rec) {
 }
 
 async function verifyOne(item) {
+  // ⓪ 中文条目优先走本地中文库（万方）：CrossRef/OpenAlex 对中文覆盖弱，
+  //   绕一圈只会浪费数秒还可能被噪声记录干扰
+  const isCN0 = /[\u4e00-\u9fa5]/.test(item.title || item.raw || "");
+  if (isCN0 && !item.doi && BRIDGE.ok) {
+    const br = await tryBridge(item);
+    if (br) return { item, ...br };
+  }
+
   const q = [item.title, item.authors[0]?.family, item.year].filter(Boolean).join(" ");
   let viaDoi = false;
   let doiDead = false;
@@ -1829,7 +1981,13 @@ function cardHTML(res, idx) {
   } else {
     if (res.viaDoi) ev.push('<span class="ev">匹配依据 <b>DOI 精确命中</b></span>');
     else if (res.best) ev.push('<span class="ev">匹配依据 <b>标题检索 · 相似度 ' + (res.score || 0).toFixed(2) + '</b></span>');
-    if (res.best && res.best.source) ev.push('<span class="ev">来源 <b>' + (res.best.source === "openalex" ? "OpenAlex" : "CrossRef") + '</b></span>');
+    if (res.best && res.best.source) {
+      const srcName = res.best.source === "openalex" ? "OpenAlex" : res.best.source === "wanfang" ? "万方（中文库）" : "CrossRef";
+      ev.push('<span class="ev">来源 <b>' + srcName + '</b></span>');
+    }
+    if (res.viaBridge && res.bridgeDegraded && res.bridgeQuery) {
+      ev.push('<span class="ev">用检索式 <b>' + esc(res.bridgeQuery) + '</b></span>');
+    }
     if (res.doiDead) ev.push('<span class="ev">原 DOI <b>未注册</b></span>');
   }
 
@@ -1952,6 +2110,9 @@ async function runVerify() {
   if (STATE.running) return;
   const text = $("src").value.trim();
   if (!text) return;
+
+  // 探测没完成就等一下——避免点太快导致中文条目错过万方通道
+  if (!BRIDGE.checked) await probeBridge();
 
   let items;
   if (/^\s*@[a-zA-Z]+\s*[{(]/.test(text)) items = parseBib(text);
@@ -2287,6 +2448,7 @@ renderTabs();
 renderPreview();
 updateTally();
 probeNetwork();
+probeBridge();
 
 /* ?demo=1 直接跑一遍示例，方便分享时演示 */
 if (new URLSearchParams(location.search).get("demo") === "1") {
