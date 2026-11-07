@@ -1881,7 +1881,7 @@ function cardHTML(res, idx) {
   }
   foot += '<span class="sp"></span>';
   if (res.status === "cnmiss") {
-    foot += '<a class="linkout" style="color:var(--cn);font-weight:600" href="https://kns.cnki.net/kns8s/defaultresult/index?kw=' + encodeURIComponent(it.title || it.raw) + '&korder=TI" target="_blank" rel="noopener">去知网检索题名' +
+    foot += '<a class="linkout" style="color:var(--cn);font-weight:600" href="https://search.cnki.com.cn/Search/Result?content=' + encodeURIComponent(it.title || it.raw) + '" target="_blank" rel="noopener">去知网检索题名' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6M10 14L21 3"/></svg></a>';
   }
   if (doiOut) foot += '<a class="linkout" href="https://doi.org/' + esc(doiOut) + '" target="_blank" rel="noopener">DOI 原文' +
@@ -1890,7 +1890,7 @@ function cardHTML(res, idx) {
   foot += '<a class="linkout" href="https://scholar.google.com/scholar?q=' + q + '" target="_blank" rel="noopener">Google Scholar</a>';
   foot += '<a class="linkout" href="https://xueshu.baidu.com/s?wd=' + q + '" target="_blank" rel="noopener">百度学术</a>';
   if (res.status !== "cnmiss") {
-    foot += '<a class="linkout" href="https://kns.cnki.net/kns8s/defaultresult/index?kw=' + q + '" target="_blank" rel="noopener">知网</a>';
+    foot += '<a class="linkout" href="https://search.cnki.com.cn/Search/Result?content=' + q + '" target="_blank" rel="noopener">知网</a>';
   }
 
   return '<div class="card s-' + st.cls + '" data-idx="' + idx + '">' +
